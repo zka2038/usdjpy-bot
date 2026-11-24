@@ -19,6 +19,9 @@ class CostModel:
     commission_bp: float = 0.20
     min_commission_usd: float = 2.00
     slippage_pips: float = 0.10  # per side, beyond the quoted bid/ask
+    # Overnight positions: IBKR pays benchmark - 0.5% on the long currency and charges
+    # benchmark + 1.5% on the short one, so ~2% a year of notional goes to the broker either way.
+    financing_skim_pct: float = 2.0
 
     def commission_usd(self) -> float:
         return max(self.notional_usd * self.commission_bp / 1e4, self.min_commission_usd)
@@ -35,6 +38,15 @@ class CostModel:
     def pips_to_usd(self, pips: float, price: float) -> float:
         return pips * self.notional_usd * PIP / price
 
+    def financing_pips(self, side: int, price: float, usd_rate_pct: float, jpy_rate_pct: float,
+                       days: float) -> float:
+        """Carry over `days` calendar days (act/360) in USDJPY pips, after the broker's skim.
+
+        Long USDJPY earns (USD rate - JPY rate); short pays it. The skim is charged either way.
+        """
+        carry_pct = side * (usd_rate_pct - jpy_rate_pct) - self.financing_skim_pct
+        return price * carry_pct / 100 * days / 360 / PIP
+
 
 # Pessimistic variant to stress-test anything that looks good.
-PESSIMISTIC = CostModel(slippage_pips=0.30)
+PESSIMISTIC = CostModel(slippage_pips=0.30, financing_skim_pct=2.5)

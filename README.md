@@ -50,6 +50,13 @@ The report is one self-contained file that works offline: the kill-criteria verd
 stats, cumulative and yearly net pips against control days, and how much extra cost each rule can
 take. Both scripts take `--source combined|histdata|dukascopy|eightcap` (default `combined`).
 
+Spec 005 (H3 as a trade simulation; rejected. The regression test of H3 is spec 003), from the repo root:
+
+```bash
+.venv/bin/python scripts/fetch_official.py   # once: FRED US 2y and Fed funds -> data/official/
+.venv/bin/python scripts/h3_rate_study.py    # three variants, kill-criteria verdict; CSVs in results/h3_*
+```
+
 `data/` and `results/` are git-ignored, so on a fresh clone run `python scripts/build_github_data.py`
 first. It downloads about 2.5 GB. Don't add `--skip-ticks`: the Eightcap bid/ask bars that
 `combined` needs are built from the ticks.
@@ -63,7 +70,10 @@ src/usdjpy/   dukascopy.py  tick download/parse, 1-min bid/ask bars
               costs.py      shared IBKR cost model
               events.py     window-trade simulator, period summaries, event vs control test
               datasets.py   loaders for every file in data/ (prices, COT, macro, calendars)
-scripts/      download.py, gotobi_study.py, gotobi_report.py (+ templates/ for the HTML report)
+              rates.py      yields and policy rates stamped with publication time (no look-ahead)
+              horizon.py    1-10 day trades at a daily decision time, financing, Newey-West stats
+scripts/      download.py, gotobi_study.py, gotobi_report.py (+ templates/ for the HTML report),
+              h3_rate_study.py
 notebooks/    01_gotobi_event_study.ipynb
 tests/        pytest
 docs/DATA.md  data catalogue: sources, coverage, verified caveats
