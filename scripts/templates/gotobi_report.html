@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gotobi Backtest Results</title>
+<script>/* d3 v7.9.0, ISC license, Copyright 2010-2023 Mike Bostock */
+__D3__</script>
+<style>
+  /* Tokens: same names as the claude.ai dashboard so the page code is shared. */
+  :root {
+    --color-fg: #1c2130; --color-fg-muted: #5a6274; --color-bg: #f7f8fa; --color-panel: #ffffff;
+    --color-border-line: #e1e4ea; --color-ok: #1d7a4c; --color-warn: #a35f00; --color-bad: #b3261e;
+    --c0: #2b62c9; --c1: #c9701f;
+    --cds-chart-muted: #9aa1af; --cds-chart-grid: #eceef2; --cds-chart-axis: #c3c8d1; --cds-chart-reference: #858c9b;
+    --cds-text-secondary: #5a6274; --cds-surface-popover: #ffffff; --cds-border: #dde1e8;
+    --cds-shadow-popover: 0 6px 20px rgba(20, 26, 40, 0.12);
+    --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-anthropic-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --cds-font-size-caption: 0.8125rem; --cds-font-size-body: 0.9375rem; --cds-font-size-heading: 1.125rem; --cds-font-size-title: 1.875rem;
+    --cds-font-weight-medium: 600;
+    --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 16px; --cds-gap-xl: 32px;
+    --cds-pad-xs: 4px; --cds-pad-sm: 6px; --cds-pad-md: 10px; --cds-pad-lg: 18px; --cds-pad-xl: 28px;
+    --cds-radius: 8px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-fg: #e6e8ee; --color-fg-muted: #9ba2b2; --color-bg: #14161c; --color-panel: #1c1f27;
+      --color-border-line: #2d313c; --color-ok: #4cc38a; --color-warn: #e0a03a; --color-bad: #f0716a;
+      --c0: #6f9ef0; --c1: #e9a05a;
+      --cds-chart-muted: #6c7385; --cds-chart-grid: #262a33; --cds-chart-axis: #3a3f4b; --cds-chart-reference: #7d8494;
+      --cds-text-secondary: #9ba2b2; --cds-surface-popover: #232731; --cds-border: #353a46;
+      --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.45);
+      color-scheme: dark;
+    }
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 400 var(--cds-font-size-body)/1.5 var(--font-anthropic-sans); }
+  .gb-page { max-width: 1080px; margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .dash-select { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background-color: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 6px 10px; }
+  .dash-select:focus-visible, .gb details summary:focus-visible { outline: 2px solid var(--c0); outline-offset: 2px; }
+  .gb-foot { margin-top: var(--cds-gap-xl); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .gb { display: flex; flex-direction: column; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+  .gb h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .gb h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; text-wrap: balance; }
+  .gb p { margin: 0; max-width: 68ch; line-height: 1.5; }
+  .gb-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+  .gb-meta { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .gb-take { font-size: var(--cds-font-size-body); }
+  .gb-num { font-variant-numeric: tabular-nums; }
+  .gb-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--cds-gap-md); }
+  .gb-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-md); min-width: 0; }
+  .gb-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--cds-gap-sm); flex-wrap: wrap; }
+  .gb-rule { font-weight: var(--cds-font-weight-medium); }
+  .gb-rule-desc { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .gb-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .gb-big-unit { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .gb-kv { display: grid; grid-template-columns: 1fr auto; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); margin: 0; }
+  .gb-kv dt { color: var(--color-fg-muted); }
+  .gb-kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .gb-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .gb-chip.is-ok { color: var(--color-ok); border-color: var(--color-ok); }
+  .gb-chip.is-bad { color: var(--color-bad); border-color: var(--color-bad); }
+  .gb-sec { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+  .gb-sec-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); flex-wrap: wrap; }
+  .gb-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .gb-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-lg); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .gb-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .gb-sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--cds-chart-muted); }
+  .gb-sw--dash { border-top-style: dashed; }
+  .gb-sw--bar { height: 10px; width: 10px; border: 0; background: var(--cds-chart-muted); border-radius: 2px; }
+  .gb-chart { position: relative; min-height: 300px; width: 100%; }
+  .gb-chart svg { display: block; overflow: visible; }
+  .gb-chart .tick text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+  .gb-chart .domain, .gb-chart .tick line { stroke: var(--cds-chart-axis); }
+  .gb-chart .gb-grid line { stroke: var(--cds-chart-grid); }
+  .gb-chart .gb-grid .domain { display: none; }
+  .gb-msg { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-md) 0; }
+  .gb-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; }
+  .gb-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+  .gb-tablewrap { overflow-x: auto; }
+  .gb-table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .gb-table th, .gb-table td { text-align: left; padding: var(--cds-pad-sm) var(--cds-pad-md); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .gb-table th { color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); white-space: nowrap; }
+  .gb-table td.gb-r, .gb-table th.gb-r { text-align: right; }
+  .gb details { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .gb details summary { cursor: pointer; color: var(--color-fg); }
+  .gb details dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--cds-gap-xs) var(--cds-gap-md); margin: var(--cds-gap-sm) 0 0; }
+  .gb details dt { color: var(--color-fg); }
+  .gb details dd { margin: 0; max-width: 68ch; }
+  @media (max-width: 480px) { .gb details dl { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="gb-page">
+
+<div class="gb">
+  <header class="gb-head" id="overview">
+    <h1>Gotobi backtest, spec 001</h1>
+    <p class="gb-meta">USDJPY around the Tokyo 09:55 JST fix · gotobi days vs other Japanese business days · 1-minute bars, 2007–2024 · 2025+ holdout excluded · IBKR cost model</p>
+    <p class="gb-take">Rule 1b passes <b class="gb-num dash-skeleton" data-draw="v" data-source="scorecard" data-field="passed" data-where="rule=1b" data-fmt="int">—</b> of <b class="gb-num dash-skeleton" data-draw="v" data-source="scorecard" data-field="of" data-where="rule=1b" data-fmt="int">—</b> kill criteria and rule 1a passes <b class="gb-num dash-skeleton" data-draw="v" data-source="scorecard" data-field="passed" data-where="rule=1a" data-fmt="int">—</b>. Treat both as provisional: most trades before mid-2024 use an estimated ask price, so costs are probably understated.</p>
+  </header>
+
+  <section class="gb-cards" id="rules" aria-label="Results by rule">
+    <article class="gb-card" id="rule-1a">
+      <div class="gb-card-top">
+        <div>
+          <div class="gb-rule">1a · Long into the fix</div>
+          <div class="gb-rule-desc">Buy 08:00 JST, sell 09:55 JST</div>
+        </div>
+        <span class="gb-chip" data-chip="1a"><span class="dash-skeleton" data-draw="v" data-source="scorecard" data-field="passed" data-where="rule=1a" data-fmt="int">—</span>/<span class="dash-skeleton" data-draw="v" data-source="scorecard" data-field="of" data-where="rule=1a" data-fmt="int">—</span> criteria</span>
+      </div>
+      <div>
+        <div class="gb-big dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1a&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="pips">—</div>
+        <div class="gb-big-unit">mean net pips per trade on gotobi days, base costs</div>
+      </div>
+      <dl class="gb-kv">
+        <dt>t-stat</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="t" data-where="rule=1a&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="num">—</dd>
+        <dt>Trades</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="n" data-where="rule=1a&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="int">—</dd>
+        <dt>Hit rate</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="hit_rate" data-where="rule=1a&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="pct">—</dd>
+        <dt>Pessimistic costs, mean</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1a&amp;days=gotobi&amp;costs=pessimistic&amp;period=all" data-fmt="pips">—</dd>
+        <dt>Pessimistic costs, t-stat</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="t" data-where="rule=1a&amp;days=gotobi&amp;costs=pessimistic&amp;period=all" data-fmt="num">—</dd>
+        <dt>Control days, mean</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1a&amp;days=control&amp;costs=base&amp;period=all" data-fmt="pips">—</dd>
+      </dl>
+    </article>
+
+    <article class="gb-card" id="rule-1b">
+      <div class="gb-card-top">
+        <div>
+          <div class="gb-rule">1b · Short after the fix</div>
+          <div class="gb-rule-desc">Sell 09:55 JST, buy back 11:00 JST</div>
+        </div>
+        <span class="gb-chip" data-chip="1b"><span class="dash-skeleton" data-draw="v" data-source="scorecard" data-field="passed" data-where="rule=1b" data-fmt="int">—</span>/<span class="dash-skeleton" data-draw="v" data-source="scorecard" data-field="of" data-where="rule=1b" data-fmt="int">—</span> criteria</span>
+      </div>
+      <div>
+        <div class="gb-big dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1b&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="pips">—</div>
+        <div class="gb-big-unit">mean net pips per trade on gotobi days, base costs</div>
+      </div>
+      <dl class="gb-kv">
+        <dt>t-stat</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="t" data-where="rule=1b&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="num">—</dd>
+        <dt>Trades</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="n" data-where="rule=1b&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="int">—</dd>
+        <dt>Hit rate</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="hit_rate" data-where="rule=1b&amp;days=gotobi&amp;costs=base&amp;period=all" data-fmt="pct">—</dd>
+        <dt>Pessimistic costs, mean</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1b&amp;days=gotobi&amp;costs=pessimistic&amp;period=all" data-fmt="pips">—</dd>
+        <dt>Pessimistic costs, t-stat</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="t" data-where="rule=1b&amp;days=gotobi&amp;costs=pessimistic&amp;period=all" data-fmt="num">—</dd>
+        <dt>Control days, mean</dt><dd class="dash-skeleton" data-draw="v" data-source="summary" data-field="mean_net_pips" data-where="rule=1b&amp;days=control&amp;costs=base&amp;period=all" data-fmt="pips">—</dd>
+      </dl>
+    </article>
+  </section>
+
+  <section class="gb-sec" id="kill-criteria">
+    <h2>Kill criteria</h2>
+    <p class="gb-note">Decided in the spec before testing. A rule that fails any of them is dropped. "Present in 2022–24" is read here as a t-stat of at least 2 within that period alone.</p>
+    <div class="gb-tablewrap">
+      <table class="gb-table" data-source="verdict" data-row-key="id">
+        <thead>
+          <tr>
+            <th data-field="criterion">Criterion</th>
+            <th data-field="threshold">Needs</th>
+            <th class="gb-r" data-field="value_1a">1a</th>
+            <th data-field="pass_1a"></th>
+            <th class="gb-r" data-field="value_1b">1b</th>
+            <th data-field="pass_1b"></th>
+          </tr>
+        </thead>
+        <tbody data-draw="verdict"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="gb-sec" id="equity">
+    <div class="gb-sec-head">
+      <h2>Cumulative net pips</h2>
+      <select class="dash-select" id="gb-rule" aria-label="Rule shown in the charts">
+        <option value="1a" selected>1a · Long into the fix</option>
+        <option value="1b">1b · Short after the fix</option>
+      </select>
+    </div>
+    <div class="gb-legend">
+      <span><i class="gb-sw" data-c="0"></i>Gotobi days, base costs</span>
+      <span><i class="gb-sw gb-sw--dash" data-c="0"></i>Gotobi days, pessimistic costs</span>
+      <span><i class="gb-sw" data-c="muted"></i>Control days, base costs</span>
+    </div>
+    <div class="gb-chart dash-skeleton" data-draw="equity" data-source="equity sources"></div>
+    <p class="gb-note">Price source by date: Dukascopy bid until HistData takes over on <span data-draw="v" class="dash-skeleton" data-source="sources" data-field="first_date" data-where="rule=1a&amp;price_source=histdata">—</span>, then Eightcap real bid/ask from <span data-draw="v" class="dash-skeleton" data-source="sources" data-field="first_date" data-where="rule=1a&amp;price_source=eightcap">—</span> (dotted lines). Only <b class="gb-num dash-skeleton" data-draw="v" data-source="sources" data-field="trades" data-where="rule=1a&amp;price_source=eightcap" data-fmt="int">—</b> of rule 1a's gotobi trades use real bid/ask prices. The rest use the bid plus a typical 2024–26 spread for that hour.</p>
+  </section>
+
+  <section class="gb-sec" id="by-year">
+    <h2>Mean net pips per trade by year</h2>
+    <div class="gb-legend">
+      <span><i class="gb-sw gb-sw--bar" data-c="0"></i>Gotobi days</span>
+      <span><i class="gb-sw gb-sw--bar" data-c="muted"></i>Control days</span>
+    </div>
+    <div class="gb-chart dash-skeleton" data-draw="yearly" data-source="yearly"></div>
+    <p class="gb-note">Base costs. Follows the rule picked above. Years from 2011 to 2014 have fewer trades because the Dukascopy data has gaps.</p>
+  </section>
+
+  <section class="gb-sec" id="cost-sensitivity">
+    <h2>How much extra cost each rule can take</h2>
+    <p>Before its t-stat falls below 2, rule 1a can absorb <b class="gb-num dash-skeleton" data-draw="v" data-source="headroom" data-field="headroom_pips" data-where="rule=1a" data-fmt="num">—</b> extra pips per round trip and rule 1b <b class="gb-num dash-skeleton" data-draw="v" data-source="headroom" data-field="headroom_pips" data-where="rule=1b" data-fmt="num">—</b>. Real spreads in 2007–2015 and at IBKR are likely wider than the estimate used, so this margin matters.</p>
+    <div class="gb-legend">
+      <span><i class="gb-sw" data-c="0"></i>1a</span>
+      <span><i class="gb-sw" data-c="1"></i>1b</span>
+      <span><i class="gb-sw gb-sw--dash" data-c="ref"></i>t = 2</span>
+    </div>
+    <div class="gb-chart dash-skeleton" data-draw="costsens" data-source="costsens"></div>
+    <p class="gb-note">t-stat of the mean net pips on gotobi days, base costs, after subtracting an extra cost from every trade.</p>
+  </section>
+
+  <details id="definitions">
+    <summary>Definitions</summary>
+    <dl>
+      <dt>Gotobi days</dt><dd>The 5th, 10th, 15th, 20th, 25th and last day of each month, moved back to the previous Japanese business day when they fall on a holiday. Japanese importers settle on these days and buy dollars at the 09:55 JST fix.</dd>
+      <dt>Control days</dt><dd>All other Japanese business days. The same trade on these days shows how much of the result is just time-of-day drift.</dd>
+      <dt>Net pips</dt><dd>Profit per trade in pips (0.01 yen) after buying at the ask, selling at the bid, IBKR commission (0.2 bp, $2 minimum) and 0.1 pip slippage per side, on a $100k trade.</dd>
+      <dt>Pessimistic costs</dt><dd>Slippage raised to 0.3 pip per side, which takes 0.4 pip more off every round trip.</dd>
+      <dt>t-stat</dt><dd>Mean divided by its standard error. Around 2 or more means the mean is unlikely to be zero by chance.</dd>
+      <dt>Gotobi vs control</dt><dd>A Welch t-test on mid-price moves (no costs) between gotobi and control days. The p-value is the chance of a gap this large if the two were the same.</dd>
+    </dl>
+  </details>
+</div>
+<p class="gb-foot">Generated __GENERATED__ by scripts/gotobi_report.py · __INPUT__</p>
+</main>
+<script>window.GB_DATA = __DATA__;</script>
+<script>
+/* Minimal stand-in for the claude.ai dashboard runtime: embedded data, calcs, draws. */
+const dash = (() => {
+  const store = { ...window.GB_DATA }, calcs = {}, draws = {}, onData = [];
+  const api = {
+    colors: ['var(--c0)', 'var(--c1)'],
+    calc(id, o) { calcs[id] = o; },
+    data(id) {
+      if (!(id in store) && calcs[id]) store[id] = calcs[id].fn(...calcs[id].inputs.map((i) => api.data(i).data));
+      return id in store ? { status: 'ok', data: store[id] } : { status: 'missing', data: [] };
+    },
+    draw(name, fn) {
+      if (fn) { draws[name] = fn; return; }
+      document.querySelectorAll(`[data-draw="${name}"]`).forEach((el) => draws[name](el));
+    },
+    onData(fn) { onData.push(fn); },
+    drawAll() { onData.forEach((f) => f()); Object.keys(draws).forEach((n) => api.draw(n)); },
+  };
+  return api;
+})();
+</script>
+<script>
+  const T_MIN = 2;
+  const P_MAX = 0.05;
+
+  dash.calc('verdict', {
+    inputs: ['summary'],
+    title: 'Kill criteria check',
+    description: 'Spec 001 kill criteria applied to the backtest summary: t-stat of at least 2 and a p-value under 0.05.',
+    fn: (summary) => {
+      const get = (rule, days, costs, period) =>
+        summary.find((r) => r.rule === rule && r.days === days && r.costs === costs && r.period === period) || {};
+      const criteria = [
+        { id: 'c1', criterion: 'Mean net pips per trade above zero, base costs', threshold: '> 0', fmt: 'pips',
+          value: (rule) => get(rule, 'gotobi', 'base', 'all').mean_net_pips, ok: (v) => v > 0 },
+        { id: 'c2', criterion: 't-stat, base costs', threshold: '≥ ' + T_MIN, fmt: 'num',
+          value: (rule) => get(rule, 'gotobi', 'base', 'all').t, ok: (v) => v >= T_MIN },
+        { id: 'c3', criterion: 'Present in 2022–24: t-stat for that period, base costs', threshold: '≥ ' + T_MIN, fmt: 'num',
+          value: (rule) => get(rule, 'gotobi', 'base', '2022+').t, ok: (v) => v >= T_MIN },
+        { id: 'c4', criterion: 'Survives pessimistic costs: t-stat', threshold: '≥ ' + T_MIN, fmt: 'num',
+          value: (rule) => get(rule, 'gotobi', 'pessimistic', 'all').t, ok: (v) => v >= T_MIN },
+        { id: 'c5', criterion: 'Beats control days: Welch p-value on mid moves', threshold: '< ' + P_MAX, fmt: 'p',
+          value: (rule) => get(rule, 'gotobi vs control', 'none (mid)', 'all').p_value, ok: (v) => v < P_MAX },
+      ];
+      return criteria.map((c) => {
+        const a = c.value('1a'), b = c.value('1b');
+        return { id: c.id, criterion: c.criterion, threshold: c.threshold, fmt: c.fmt,
+          value_1a: a ?? null, pass_1a: a == null ? 'n/a' : c.ok(a) ? 'Pass' : 'Fail',
+          value_1b: b ?? null, pass_1b: b == null ? 'n/a' : c.ok(b) ? 'Pass' : 'Fail' };
+      });
+    },
+  });
+
+  dash.calc('scorecard', {
+    inputs: ['verdict'],
+    title: 'Kill criteria passed',
+    description: 'How many of the kill criteria each rule passes.',
+    fn: (verdict) => ['1a', '1b'].map((rule) => ({
+      rule,
+      passed: verdict.filter((v) => v['pass_' + rule] === 'Pass').length,
+      of: verdict.length,
+    })),
+  });
+
+  dash.calc('equity', {
+    inputs: ['trades'],
+    title: 'Cumulative net pips',
+    description: 'Running total of net pips per rule, in date order, for gotobi days at base and pessimistic costs and for control days.',
+    fn: (trades) => {
+      const out = [];
+      const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      for (const rule of ['1a', '1b']) {
+        const g = trades.filter((t) => t.rule === rule && t.days === 'gotobi').sort(byDate);
+        const c = trades.filter((t) => t.rule === rule && t.days === 'control').sort(byDate);
+        let base = 0, pess = 0, ctrl = 0;
+        for (const t of g) {
+          base += +t.net_pips; pess += +t.net_pips_pessimistic;
+          out.push({ rule, series: 'gotobi_base', date: t.date, cum_pips: Math.round(base * 100) / 100 });
+          out.push({ rule, series: 'gotobi_pessimistic', date: t.date, cum_pips: Math.round(pess * 100) / 100 });
+        }
+        for (const t of c) {
+          ctrl += +t.net_pips;
+          out.push({ rule, series: 'control_base', date: t.date, cum_pips: Math.round(ctrl * 100) / 100 });
+        }
+      }
+      return out;
+    },
+  });
+
+  dash.calc('yearly', {
+    inputs: ['trades'],
+    title: 'Mean net pips by year',
+    description: 'Mean net pips per trade at base costs, by calendar year, rule and day type.',
+    fn: (trades) => {
+      const out = [];
+      for (const rule of ['1a', '1b']) {
+        const years = Array.from(new Set(trades.filter((t) => t.rule === rule).map((t) => t.date.slice(0, 4)))).sort();
+        for (const year of years) {
+          const pick = (days) => trades.filter((t) => t.rule === rule && t.days === days && t.date.slice(0, 4) === year).map((t) => +t.net_pips);
+          const g = pick('gotobi'), c = pick('control');
+          const mean = (xs) => (xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 100) / 100 : null);
+          out.push({ rule, year, gotobi_mean: mean(g), gotobi_n: g.length, control_mean: mean(c), control_n: c.length });
+        }
+      }
+      return out;
+    },
+  });
+
+  dash.calc('costsens', {
+    inputs: ['summary'],
+    title: 'Extra cost sensitivity',
+    description: 'Mean and t-stat on gotobi days at base costs after taking an extra 0 to 1.5 pips off every round trip.',
+    fn: (summary) => {
+      const out = [];
+      for (const rule of ['1a', '1b']) {
+        const s = summary.find((r) => r.rule === rule && r.days === 'gotobi' && r.costs === 'base' && r.period === 'all');
+        if (!s) continue;
+        const se = s.std / Math.sqrt(s.n);
+        for (let k = 0; k <= 6; k++) {
+          const extra = k * 0.25;
+          const m = s.mean_net_pips - extra;
+          out.push({ rule, extra_pips: extra, mean_net_pips: Math.round(m * 1000) / 1000, t: Math.round((m / se) * 1000) / 1000 });
+        }
+      }
+      return out;
+    },
+  });
+
+  dash.calc('headroom', {
+    inputs: ['summary'],
+    title: 'Cost headroom',
+    description: 'Extra pips per round trip a rule can absorb before its t-stat at base costs falls to 2.',
+    fn: (summary) => ['1a', '1b'].map((rule) => {
+      const s = summary.find((r) => r.rule === rule && r.days === 'gotobi' && r.costs === 'base' && r.period === 'all') || {};
+      return { rule, headroom_pips: s.n ? Math.round((s.mean_net_pips - T_MIN * s.std / Math.sqrt(s.n)) * 100) / 100 : null };
+    }),
+  });
+
+  dash.calc('sources', {
+    inputs: ['trades'],
+    title: 'Price source per trade',
+    description: 'Gotobi-day trades per rule by the price data behind them, with first and last trade dates.',
+    fn: (trades) => {
+      const out = [];
+      for (const rule of ['1a', '1b']) {
+        for (const src of ['dukascopy', 'histdata', 'eightcap']) {
+          const ts = trades.filter((t) => t.rule === rule && t.days === 'gotobi' && t.price_source === src).map((t) => t.date).sort();
+          out.push({ rule, price_source: src, trades: ts.length, first_date: ts[0] ?? null, last_date: ts[ts.length - 1] ?? null });
+        }
+      }
+      return out;
+    },
+  });
+
+  const FMT = {
+    pips: (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + d3.format('.2f')(Math.abs(v)),
+    num: (v) => (v < 0 ? '−' : '') + d3.format('.2f')(Math.abs(v)),
+    pct: d3.format('.0%'),
+    int: d3.format(','),
+    p: d3.format('.3f'),
+    date: (v) => d3.utcFormat('%-d %b %Y')(d3.utcParse('%Y-%m-%d')(v)),
+  };
+
+  function findRow(rows, where) {
+    const conds = (where || '').split('&').filter(Boolean).map((s) => s.split('=').map(decodeURIComponent));
+    return rows.find((r) => conds.every(([k, v]) => String(r[k]) === v));
+  }
+
+  dash.draw('v', (el) => {
+    const g = dash.data(el.dataset.source);
+    if (g.status === 'loading') { el.textContent = ''; return; }
+    el.classList.remove('dash-skeleton');
+    if (g.status !== 'ok') { el.textContent = '—'; return; }
+    const row = findRow(g.data, el.dataset.where);
+    const v = row ? row[el.dataset.field] : null;
+    const f = FMT[el.dataset.fmt] || (el.dataset.field.endsWith('_date') ? FMT.date : String);
+    el.textContent = v == null ? '—' : f(v);
+  });
+
+  dash.onData(() => {
+    const s = dash.data('scorecard');
+    document.querySelectorAll('[data-chip]').forEach((chip) => {
+      const row = s.status === 'ok' ? s.data.find((r) => r.rule === chip.dataset.chip) : null;
+      chip.classList.toggle('is-ok', !!row && row.passed === row.of);
+      chip.classList.toggle('is-bad', !!row && row.passed < row.of);
+    });
+  });
+
+  document.querySelectorAll('.gb-sw[data-c]').forEach((sw) => {
+    const c = sw.dataset.c;
+    const color = c === 'muted' ? 'var(--cds-chart-muted)' : c === 'ref' ? 'var(--cds-chart-reference)' : dash.colors[+c];
+    if (sw.classList.contains('gb-sw--bar')) sw.style.backgroundColor = color;
+    else sw.style.borderTopColor = color;
+  });
+
+  window.gbRule = '1a';
+  document.querySelectorAll('#gb-rule').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      window.gbRule = sel.value;
+      dash.draw('equity');
+      dash.draw('yearly');
+    });
+  });
+
+  dash.draw('verdict', (tbody) => {
+    const g = dash.data('verdict');
+    tbody.replaceChildren();
+    if (g.status !== 'ok') {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = g.status === 'loading' ? '' : 'The kill criteria could not be worked out because the summary file did not load.';
+      tr.append(td);
+      tbody.append(tr);
+      return;
+    }
+    for (const r of g.data) {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.id;
+      const cell = (text, cls) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = text; tr.append(td); return td; };
+      const chip = (text) => {
+        const td = document.createElement('td');
+        const s = document.createElement('span');
+        s.className = 'gb-chip ' + (text === 'Pass' ? 'is-ok' : text === 'Fail' ? 'is-bad' : '');
+        s.textContent = text;
+        td.append(s);
+        tr.append(td);
+      };
+      const fmt = FMT[r.fmt] || String;
+      cell(r.criterion);
+      cell(r.threshold);
+      cell(r.value_1a == null ? '—' : fmt(r.value_1a), 'gb-r');
+      chip(r.pass_1a);
+      cell(r.value_1b == null ? '—' : fmt(r.value_1b), 'gb-r');
+      chip(r.pass_1b);
+      tbody.append(tr);
+    }
+  });
+
+  function gbPlaceholder(el, status) {
+    el.replaceChildren();
+    if (status === 'loading') { el.classList.add('dash-skeleton'); return; }
+    el.classList.remove('dash-skeleton');
+    const p = document.createElement('p');
+    p.className = 'gb-msg';
+    p.textContent = status === 'error' ? 'This chart could not load the trades file.' : '—';
+    el.append(p);
+  }
+
+  function gbTip(el) {
+    const tip = document.createElement('div');
+    tip.className = 'gb-tip';
+    tip.hidden = true;
+    el.append(tip);
+    return {
+      show(px, py, head, lines) {
+        tip.replaceChildren();
+        const h = document.createElement('div'); h.className = 'gb-tip-h'; h.textContent = head; tip.append(h);
+        for (const l of lines) { const d = document.createElement('div'); d.textContent = l; tip.append(d); }
+        tip.hidden = false;
+        const w = tip.offsetWidth, W = el.clientWidth;
+        tip.style.left = Math.max(0, Math.min(W - w, px + 12)) + 'px';
+        tip.style.top = Math.max(0, py - tip.offsetHeight - 8) + 'px';
+      },
+      hide() { tip.hidden = true; },
+    };
+  }
+
+  function gbYAxis(svg, y, H, W, fmt) {
+    const gy = svg.append('g').call(d3.axisLeft(y).ticks(6).tickFormat(fmt));
+    const widest = d3.max(gy.selectAll('text').nodes(), (n) => n.getComputedTextLength()) || 24;
+    const ml = Math.ceil(widest) + 14;
+    gy.attr('transform', `translate(${ml},0)`);
+    svg.insert('g', ':first-child').attr('class', 'gb-grid').attr('transform', `translate(${ml},0)`)
+      .call(d3.axisLeft(y).ticks(6).tickSize(-(W - ml - 12)).tickFormat(''));
+    return ml;
+  }
+
+  const signed = (v) => (v < 0 ? '−' : '') + d3.format(',.0f')(Math.abs(v));
+
+  dash.draw('equity', (el) => {
+    const g = dash.data('equity');
+    if (g.status !== 'ok') return gbPlaceholder(el, g.status);
+    const src = dash.data('sources');
+    const rule = window.gbRule || '1a';
+    const parse = d3.utcParse('%Y-%m-%d');
+    const rows = g.data.filter((r) => r.rule === rule).map((r) => ({ ...r, d: parse(r.date), v: +r.cum_pips }));
+    el.replaceChildren();
+    el.classList.remove('dash-skeleton');
+    if (!rows.length) { gbPlaceholder(el, 'empty'); return; }
+    const W = Math.max(260, el.clientWidth), H = 300, mb = 26, mt = 10, mr = 12;
+    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H).attr('role', 'img')
+      .attr('aria-label', `Cumulative net pips for rule ${rule} on gotobi days at base and pessimistic costs, and on control days`);
+    const [lo, hi] = d3.extent(rows, (r) => r.v);
+    const y = d3.scaleLinear().domain([Math.min(0, lo), Math.max(0, hi)]).nice().range([H - mb, mt]);
+    const ml = gbYAxis(svg, y, H, W, signed);
+    const x = d3.scaleUtc().domain(d3.extent(rows, (r) => r.d)).range([ml, W - mr]);
+    svg.append('g').attr('transform', `translate(0,${H - mb})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - ml) / 80))).tickSizeOuter(0));
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)');
+    if (src.status === 'ok') {
+      for (const s of src.data.filter((r) => r.rule === rule && r.first_date && r.price_source !== 'dukascopy')) {
+        const xx = x(parse(s.first_date));
+        svg.append('line').attr('x1', xx).attr('x2', xx).attr('y1', mt).attr('y2', H - mb)
+          .style('stroke', 'var(--cds-chart-reference)').style('stroke-dasharray', '2 3');
+      }
+    }
+    const series = [
+      { key: 'gotobi_base', label: 'Gotobi, base', color: dash.colors[0], dash: null },
+      { key: 'gotobi_pessimistic', label: 'Gotobi, pessimistic', color: dash.colors[0], dash: '5 4' },
+      { key: 'control_base', label: 'Control, base', color: 'var(--cds-chart-muted)', dash: null },
+    ];
+    const line = d3.line().x((r) => x(r.d)).y((r) => y(r.v));
+    const bySeries = new Map(series.map((s) => [s.key, rows.filter((r) => r.series === s.key)]));
+    for (const s of series) {
+      svg.append('path').datum(bySeries.get(s.key)).attr('d', line).style('fill', 'none')
+        .style('stroke', s.color).style('stroke-width', 1.6).style('stroke-dasharray', s.dash);
+    }
+    const tip = gbTip(el);
+    const bis = d3.bisector((r) => r.d).right;
+    const cursor = svg.append('line').attr('y1', mt).attr('y2', H - mb).style('stroke', 'var(--cds-chart-axis)').attr('visibility', 'hidden');
+    svg.append('rect').attr('x', ml).attr('y', mt).attr('width', W - ml - mr).attr('height', H - mt - mb).style('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px, py] = d3.pointer(ev, el);
+        const d = x.invert(d3.pointer(ev)[0]);
+        cursor.attr('x1', x(d)).attr('x2', x(d)).attr('visibility', 'visible');
+        const lines = series.map((s) => {
+          const arr = bySeries.get(s.key);
+          const i = bis(arr, d) - 1;
+          return `${s.label}: ${i >= 0 ? signed(arr[i].v) : '0'} pips`;
+        });
+        tip.show(px, py, d3.utcFormat('%-d %b %Y')(d), lines);
+      })
+      .on('pointerleave', () => { tip.hide(); cursor.attr('visibility', 'hidden'); });
+  });
+
+  dash.draw('yearly', (el) => {
+    const g = dash.data('yearly');
+    if (g.status !== 'ok') return gbPlaceholder(el, g.status);
+    const rule = window.gbRule || '1a';
+    const rows = g.data.filter((r) => r.rule === rule);
+    el.replaceChildren();
+    el.classList.remove('dash-skeleton');
+    if (!rows.length) { gbPlaceholder(el, 'empty'); return; }
+    const W = Math.max(260, el.clientWidth), H = 300, mb = 26, mt = 10, mr = 12;
+    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H).attr('role', 'img')
+      .attr('aria-label', `Mean net pips per trade by year for rule ${rule}, gotobi days next to control days`);
+    const vals = rows.flatMap((r) => [r.gotobi_mean, r.control_mean]).filter((v) => v != null);
+    const y = d3.scaleLinear().domain([Math.min(0, d3.min(vals)), Math.max(0, d3.max(vals))]).nice().range([H - mb, mt]);
+    const ml = gbYAxis(svg, y, H, W, (v) => (v < 0 ? '−' : '') + d3.format('.0f')(Math.abs(v)));
+    const x0 = d3.scaleBand().domain(rows.map((r) => r.year)).range([ml, W - mr]).paddingInner(0.25).paddingOuter(0.1);
+    const x1 = d3.scaleBand().domain(['g', 'c']).range([0, x0.bandwidth()]).padding(0.08);
+    const every = Math.ceil(rows.length / Math.max(2, Math.floor((W - ml) / 44)));
+    svg.append('g').attr('transform', `translate(0,${H - mb})`)
+      .call(d3.axisBottom(x0).tickValues(x0.domain().filter((_, i) => i % every === 0)).tickSizeOuter(0));
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)');
+    const bar = (r, key, k, color) => {
+      const v = r[key];
+      if (v == null) return;
+      svg.append('rect').attr('x', x0(r.year) + x1(k)).attr('width', x1.bandwidth())
+        .attr('y', Math.min(y(0), y(v))).attr('height', Math.max(1, Math.abs(y(v) - y(0))))
+        .style('fill', color).attr('rx', 1);
+    };
+    for (const r of rows) { bar(r, 'gotobi_mean', 'g', dash.colors[0]); bar(r, 'control_mean', 'c', 'var(--cds-chart-muted)'); }
+    const tip = gbTip(el);
+    const pf = (v) => (v == null ? '—' : FMT.pips(v));
+    for (const r of rows) {
+      svg.append('rect').attr('x', x0(r.year)).attr('y', mt).attr('width', x0.bandwidth()).attr('height', H - mt - mb).style('fill', 'transparent')
+        .on('pointermove', (ev) => {
+          const [px, py] = d3.pointer(ev, el);
+          tip.show(px, py, r.year, [`Gotobi: ${pf(r.gotobi_mean)} pips (${r.gotobi_n} trades)`, `Control: ${pf(r.control_mean)} pips (${r.control_n} trades)`]);
+        })
+        .on('pointerleave', () => tip.hide());
+    }
+  });
+
+  dash.draw('costsens', (el) => {
+    const g = dash.data('costsens');
+    if (g.status !== 'ok') return gbPlaceholder(el, g.status);
+    el.replaceChildren();
+    el.classList.remove('dash-skeleton');
+    const rows = g.data;
+    if (!rows.length) { gbPlaceholder(el, 'empty'); return; }
+    const W = Math.max(260, el.clientWidth), H = 300, mb = 26, mt = 10, mr = 16;
+    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H).attr('role', 'img')
+      .attr('aria-label', 't-stat of each rule as extra cost per round trip rises from 0 to 1.5 pips, against the t = 2 line');
+    const y = d3.scaleLinear().domain([Math.min(0, d3.min(rows, (r) => r.t)), Math.max(T_MIN, d3.max(rows, (r) => r.t))]).nice().range([H - mb, mt]);
+    const ml = gbYAxis(svg, y, H, W, (v) => (v < 0 ? '−' : '') + d3.format('.1f')(Math.abs(v)));
+    const x = d3.scaleLinear().domain(d3.extent(rows, (r) => r.extra_pips)).range([ml, W - mr]);
+    svg.append('g').attr('transform', `translate(0,${H - mb})`)
+      .call(d3.axisBottom(x).tickValues(Array.from(new Set(rows.map((r) => r.extra_pips)))).tickFormat((v) => '+' + d3.format('.2~f')(v)).tickSizeOuter(0));
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(T_MIN)).attr('y2', y(T_MIN))
+      .style('stroke', 'var(--cds-chart-reference)').style('stroke-dasharray', '5 4');
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-axis)');
+    const rules = [['1a', dash.colors[0]], ['1b', dash.colors[1]]];
+    const line = d3.line().x((r) => x(r.extra_pips)).y((r) => y(r.t));
+    const tip = gbTip(el);
+    for (const [rule, color] of rules) {
+      const rr = rows.filter((r) => r.rule === rule);
+      svg.append('path').datum(rr).attr('d', line).style('fill', 'none').style('stroke', color).style('stroke-width', 1.8);
+      svg.selectAll(null).data(rr).join('circle').attr('cx', (r) => x(r.extra_pips)).attr('cy', (r) => y(r.t)).attr('r', 3.5)
+        .style('fill', (r) => (r.t >= T_MIN ? color : 'var(--color-bg)')).style('stroke', color).style('stroke-width', 1.5);
+    }
+    const xs = Array.from(new Set(rows.map((r) => r.extra_pips)));
+    const step = xs.length > 1 ? x(xs[1]) - x(xs[0]) : W;
+    for (const e of xs) {
+      svg.append('rect').attr('x', x(e) - step / 2).attr('y', mt).attr('width', step).attr('height', H - mt - mb).style('fill', 'transparent')
+        .on('pointermove', (ev) => {
+          const [px, py] = d3.pointer(ev, el);
+          const lines = rules.map(([rule]) => {
+            const r = rows.find((q) => q.rule === rule && q.extra_pips === e);
+            return r ? `${rule}: t ${FMT.num(r.t)}, mean ${FMT.pips(r.mean_net_pips)} pips` : `${rule}: —`;
+          });
+          tip.show(px, py, `Extra cost +${d3.format('.2~f')(e)} pips per round trip`, lines);
+        })
+        .on('pointerleave', () => tip.hide());
+    }
+  });
+
+dash.drawAll();
+let gbResize;
+window.addEventListener('resize', () => {
+  clearTimeout(gbResize);
+  gbResize = setTimeout(() => ['equity', 'yearly', 'costsens'].forEach((n) => dash.draw(n)), 150);
+});
+</script>
+</body>
+</html>

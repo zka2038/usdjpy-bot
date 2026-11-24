@@ -29,8 +29,11 @@ cd ~/Documents/Projects/usdjpy-bot
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m pytest -q                              # sanity tests
-python scripts/download.py 2010-01-01 2026-11-20 # Dukascopy ticks -> data/ (takes a while; resumable)
-python scripts/gotobi_study.py                   # spec 001
+python scripts/gotobi_study.py                   # spec 001 on the seeded data
+# rebuild / extend data (see docs/DATA.md):
+python scripts/build_github_data.py              # GitHub mirrors (what seeded data/)
+python scripts/fetch_official.py                 # FRED (incl. US 2y), MOF flows & intervention, CFTC
+python scripts/download.py 2010-01-01 2026-11-20 # Dukascopy ticks (large; resumable)
 ```
 
 ## Layout
@@ -41,10 +44,12 @@ src/usdjpy/   dukascopy.py  tick download/parse, 1-min bid/ask bars
               calendars.py  JP business days, gotobi days, UK month-ends
               costs.py      shared IBKR cost model
               events.py     window-trade simulator, period summaries, event vs control test
+              datasets.py   loaders for every file in data/ (prices, COT, macro, calendars)
 scripts/      download.py, gotobi_study.py
 notebooks/    01_gotobi_event_study.ipynb
 tests/        pytest
-data/, results/   git-ignored
+docs/DATA.md  data catalogue: sources, coverage, verified caveats
+data/         git-ignored except data/calendars/; results/ git-ignored
 ```
 
 ## Notes on the data
