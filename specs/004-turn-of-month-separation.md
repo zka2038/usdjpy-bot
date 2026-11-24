@@ -112,19 +112,50 @@ which is calendar-determined rather than chosen.
 
 ## Power
 
-20 years pre-holdout, 3-day window equivalent, sd of the window move 173 pips:
+**Corrected.** An earlier draft of this section computed the MDE on a 3-day window
+and concluded the spec was well-powered. The inherited windows are 115 and 65
+*minutes*. On the correct scaling the headline test is underpowered.
 
-| Group | Obs/yr | n (20y) | MDE at 80% |
+Window standard deviations, √time from a 100-pip daily sd (a floor, since the
+Tokyo morning is an active session):
+
+| Window | Minutes | sd |
+|---|---|---|
+| prefix 08:00–09:55 JST | 115 | 28.3 pips |
+| postfix 09:55–11:00 JST | 65 | 21.3 pips |
+
+Published Gotobi effect: ~1.8bp of notional = **2.86 pips** at 159.
+
+MDE at 80% power, 15 years pre-holdout, on the 115-minute window:
+
+| Group | n | MDE | vs the 2.86-pip effect |
 |---|---|---|---|
-| A month-end | 12 | 240 | 31 pips |
-| B Gotobi proper | ~48 | ~960 | 16 pips |
-| A vs B difference | — | — | ~35 pips |
+| B Gotobi proper | 895 | 2.65 pips | 0.9× — **marginally powered** |
+| A month-end | 180 | 5.91 pips | 2.1× too insensitive |
+| **A vs B (the spec 004 test)** | — | **6.47 pips** | **2.3× too insensitive** |
 
-Well-powered against the published effect sizes, which is the opposite of H1's
-position. The risk here is not low power but multiple testing across calendar
-patterns — a minimal grid on one pair is 50–60 near-independent tests, which
-expects 2–3 nominal 5% hits by chance. Hence the raised threshold and the fixed,
-inherited windows.
+So B alone can just about see the published effect, while **the A-versus-B
+separation cannot.** A null on the A/B comparison is therefore weak evidence that
+the two mechanisms behave alike — not evidence that they do. Record the realised
+MDE from the trade standard deviations alongside every comparison; the script does
+this, and the runtime numbers supersede these √time estimates.
+
+What this does *not* undermine: the A/C and B/C comparisons, where n is larger and
+the question is whether either group differs from ordinary days at all. If both
+are null against C, the separation question is moot.
+
+Multiple testing remains the second risk — a minimal calendar grid on one pair is
+50–60 near-independent tests, expecting 2–3 nominal 5% hits by chance. Hence the
+raised threshold and the windows inherited unchanged from spec 001.
+
+### Scale of the confound, quantified
+
+Month-end is **17% of spec 001's treatment group** (180 of 1,075 days over
+2010–2024). Weighting by the published spike-frequency ratio (0.538/0.276 = 1.95)
+puts month-end at roughly **28% of spec 001's measured effect while being 17% of
+its days**. That is enough to break attribution to the importer-settlement
+mechanism; it is not enough to say spec 001 is "really" a month-end result. State
+it at that strength and no stronger.
 
 ## Outcome to expect
 
