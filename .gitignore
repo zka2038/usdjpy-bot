@@ -1,4 +1,6 @@
-data/
+data/*
+!data/calendars/
+!data/README.md
 results/
 .venv/
 __pycache__/

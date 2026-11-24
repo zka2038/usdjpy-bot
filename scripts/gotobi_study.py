@@ -1,6 +1,7 @@
 """Spec 001: gotobi / Tokyo 9:55 JST fix event study.
 
-    python scripts/gotobi_study.py
+    python scripts/gotobi_study.py                    # data/ seeded from GitHub mirrors (combined source)
+    python scripts/gotobi_study.py --source dukascopy-ticks   # after scripts/download.py
 
 Tests, on gotobi days vs ordinary Japanese business days (control):
   1a  long  08:00 -> 09:55 JST   (23:00 -> 00:55 GMT)  importer USD demand into the fix
@@ -12,17 +13,24 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
+import argparse  # noqa: E402
+
 import pandas as pd  # noqa: E402
 
 from usdjpy.calendars import gotobi_days, jp_business_days  # noqa: E402
 from usdjpy.config import DATA_DIR, RESULTS_DIR, SYMBOL  # noqa: E402
 from usdjpy.costs import CostModel, PESSIMISTIC  # noqa: E402
+from usdjpy.datasets import load_minute  # noqa: E402
 from usdjpy.dukascopy import load_minute_bars  # noqa: E402
 from usdjpy.events import compare, summarize, window_trades  # noqa: E402
 
 pd.set_option("display.width", 140, "display.float_format", "{:.3f}".format)
 
-bars = load_minute_bars(SYMBOL, DATA_DIR)
+ap = argparse.ArgumentParser()
+ap.add_argument("--source", default="combined", help="combined | histdata | dukascopy | eightcap | dukascopy-ticks")
+args = ap.parse_args()
+bars = load_minute_bars(SYMBOL, DATA_DIR) if args.source == "dukascopy-ticks" else load_minute(args.source)
+print(f"Source: {args.source}")
 start, end = bars.index[0].date(), bars.index[-1].date()
 gotobi = gotobi_days(start, end)
 control = jp_business_days(start, end).difference(gotobi)
