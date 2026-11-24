@@ -36,6 +36,24 @@ python scripts/fetch_official.py                 # FRED (incl. US 2y), MOF flows
 python scripts/download.py 2010-01-01 2026-11-20 # Dukascopy ticks (large; resumable)
 ```
 
+## See the results
+
+Spec 001 (gotobi), from the repo root:
+
+```bash
+.venv/bin/python scripts/gotobi_study.py     # summary tables in the terminal, trade CSVs in results/
+.venv/bin/python scripts/gotobi_report.py    # rerun and build results/gotobi_report.html (~1 min)
+open results/gotobi_report.html              # view the report in your browser
+```
+
+The report is one self-contained file that works offline: the kill-criteria verdict, per-rule
+stats, cumulative and yearly net pips against control days, and how much extra cost each rule can
+take. Both scripts take `--source combined|histdata|dukascopy|eightcap` (default `combined`).
+
+`data/` and `results/` are git-ignored, so on a fresh clone run `python scripts/build_github_data.py`
+first. It downloads about 2.5 GB. Don't add `--skip-ticks`: the Eightcap bid/ask bars that
+`combined` needs are built from the ticks.
+
 ## Layout
 
 ```
@@ -45,7 +63,7 @@ src/usdjpy/   dukascopy.py  tick download/parse, 1-min bid/ask bars
               costs.py      shared IBKR cost model
               events.py     window-trade simulator, period summaries, event vs control test
               datasets.py   loaders for every file in data/ (prices, COT, macro, calendars)
-scripts/      download.py, gotobi_study.py
+scripts/      download.py, gotobi_study.py, gotobi_report.py (+ templates/ for the HTML report)
 notebooks/    01_gotobi_event_study.ipynb
 tests/        pytest
 docs/DATA.md  data catalogue: sources, coverage, verified caveats
