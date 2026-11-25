@@ -99,11 +99,28 @@ def test_download_tree_refuses_to_mix_full_and_partial(tmp_path):
     # Fresh tree is claimed by its first writer; a mismatch is refused either way.
     tokyo = tmp_path / "tokyo" / "USDJPY"
     _claim_tree(tokyo, TOKYO_MORNING_HOURS)
-    _claim_tree(tokyo, (0, 1, 2, 22, 23))          # same set, any order
+    _claim_tree(tokyo, (0, 1, 22, 23))             # same set, any order
     with pytest.raises(ValueError):
         _claim_tree(tokyo, None)
     with pytest.raises(ValueError):
         _claim_tree(tokyo, (0, 1))
+
+
+def test_download_trims_closed_hours_and_honours_days(tmp_path, monkeypatch):
+    from usdjpy import dukascopy
+    calls = []
+    monkeypatch.setattr(dukascopy, "fetch_day",
+                        lambda sym, day, session, hours, pause: calls.append((day, hours)) or dukascopy._empty())
+    # Thu 2023-01-05 .. Mon 2023-01-09
+    n = dukascopy.download_range("USDJPY", dt.date(2023, 1, 5), dt.date(2023, 1, 9), tmp_path,
+                                 hours=dukascopy.TOKYO_MORNING_HOURS)
+    assert calls == [(dt.date(2023, 1, 5), (0, 1, 22, 23)), (dt.date(2023, 1, 6), (0, 1)),
+                     (dt.date(2023, 1, 8), (22, 23)), (dt.date(2023, 1, 9), (0, 1, 22, 23))]
+    assert n == 12
+    calls.clear()
+    dukascopy.download_range("USDJPY", dt.date(2023, 1, 10), dt.date(2023, 1, 12), tmp_path,
+                             hours=dukascopy.TOKYO_MORNING_HOURS, days={dt.date(2023, 1, 11)})
+    assert [d for d, _ in calls] == [dt.date(2023, 1, 11)]
 
 
 def test_fetch_day_rejects_bad_hours():
