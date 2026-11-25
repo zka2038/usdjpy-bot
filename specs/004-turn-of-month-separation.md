@@ -109,6 +109,28 @@ they are restored from `data/tokyo_hours/`.
    `PESSIMISTIC` all-in cost (~1.84 pips at 159) does not proceed to Layer 2, even
    if significant.
 
+**Evaluation note on criterion 5 (2026-11-25; the criterion is unchanged; no filled
+data had been viewed).** "~1.84 pips at 159" was an estimate of the quantity the
+criterion defines, not the criterion itself, and it was wrong twice: it used the
+pre-fix hour-7 spread, and it applied the long leg's entry spread to both legs. The
+*Results* section later substituted 1.60 after results had been seen; that
+substitution is withdrawn. From this date criterion 5 is evaluated as written, per
+trade:
+- **Bar for trade i** = `PESSIMISTIC.round_trip_pips(price_i)` + the spread trade i
+  actually pays: the entry spread for the long prefix leg, the exit spread for the
+  short postfix leg (bid-anchored fills: a long buys bid + s at entry, a short buys
+  bid + s at exit). Priced at the trade's own price, as `net_pips` already is.
+- **Margin** = mean over trades of `net_pips_i − bar_i`. Criterion 5 passes if the
+  margin is ≥ 0. Read literally, that requires gross to cover base plus pessimistic
+  costs, about 2.2× base: a cost-doubling test.
+- **The governing column is *measured*** (see *Gap fill*). Until it exists, criterion
+  5 is **pending**; the *as run*, *era* and *era ×2* columns are assumptions.
+- **Reported beside it, not governing** (standard net-of-cost measures): the
+  one-sided 95% lower bound of the margin, with any pass or fail within one standard
+  error labelled "not resolved"; net mean and t under `PESSIMISTIC` (criterion 4);
+  break-even round-trip cost (mean `mid_pips`) in pips and bp; and a bp view at 159,
+  so the effect and the costs are compared at today's price.
+
 ## Parameters
 
 Zero new. Entry and exit times are inherited unchanged from spec 001 precisely so
@@ -466,6 +488,34 @@ both quote:
   `PESSIMISTIC`.
 - **Unchanged:** the windows, the A/B/C partition, `quote_at` tolerance,
   `allow_holdout=False`, and every kill criterion and its threshold.
+
+### Weekday-matched comparison (declared 2026-11-25, before any filled data is seen)
+
+**Why.** Gotobi dates that fall on a weekend roll back to Friday, so B is 44% Fridays
+against 11% in C, and month-end (A) rolls back the same way. Non-Gotobi Fridays move
+on their own in the prefix window. The declared unmatched comparison therefore mixes
+a Gotobi contrast with a weekday contrast. Found by an independent review on
+2026-11-25.
+
+**Test.** For each comparison X vs Y in {A vs C, B vs C, A vs B}, on `mid_pips`:
+- For each JST weekday w (Mon–Fri) in which both groups have at least 2 trades,
+  d_w = mean(X, w) − mean(Y, w).
+- D = Σ_w (n_X,w / n_X′) · d_w, where n_X′ is X's trade count over the weekdays used
+  (weights are X's weekday mix: the effect on the days X actually trades).
+- SE² = Σ_w (n_X,w / n_X′)² · (s²_X,w / n_X,w + s²_Y,w / n_Y,w); t = D / SE.
+- Bar |t| ≥ 2.5; MDE at 3.342 SE (t = 2.5, 80% power). Dropped weekday cells are
+  reported.
+Implemented as `events.stratified_compare`.
+
+**Reported** beside the declared unmatched comparison (figure 2), with *as run* and
+*filled* columns. It replaces neither the declared test nor any kill criterion. If
+the matched and unmatched B-vs-C disagree at the 2.5 bar, the status line says so,
+and the mechanism claim ("Gotobi-proper differs from control") is read from the
+matched test.
+
+**Disclosure.** On *as run* data a weekday-dummy regression has already been seen:
+B vs C prefix +1.464 (t 1.89), postfix +1.444 (t 2.36); with year dummies too, t
+1.89 and 2.39. Only the filled run of this test is blind.
 
 ### Figures to re-derive
 
