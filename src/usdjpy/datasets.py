@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .config import DATA_DIR
+from .config import DATA_DIR, SYMBOL
 
 BARS = DATA_DIR / "bars_1min"
 FALLBACK_SPREAD = 0.003  # 0.3 pips
@@ -60,8 +60,15 @@ def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> 
 
 
 def load_minute(source: str = "combined") -> pd.DataFrame:
-    """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04, complete),
-    'eightcap' (2024-06 to 2026-06, real bid/ask), or 'combined' (best available per period)."""
+    """1-min bars. source: 'dukascopy_bidask' (2003-05 onward, REAL bid/ask, from
+    scripts/fetch_dukascopy.py), 'dukascopy' (2007-2023 bid-only export, gappy), 'histdata'
+    (2015-2025-04, see docs/DATA.md for its gaps), 'eightcap' (2024-06 to 2026-06, real
+    bid/ask), or 'combined' (best available per period from the GitHub-seeded files)."""
+    if source == "dukascopy_bidask":
+        from .dukascopy_store import load_m1
+        m = load_m1(SYMBOL, DATA_DIR / "dukascopy")
+        return pd.DataFrame({"bid": m["bid_c"], "ask": m["ask_c"], "spread": m["ask_c"] - m["bid_c"],
+                             "source": "dukascopy_bidask"}, index=m.index)
     if source == "dukascopy":
         return _with_synthetic_ask(pd.read_parquet(BARS / "dukascopy_bid_2007_2023.parquet")["close"], "dukascopy")
     if source == "histdata":
@@ -114,3 +121,9 @@ def macro_daily() -> pd.DataFrame:
     f = pd.read_csv(DATA_DIR / "macro" / "fred_daily_2000_2026H1.csv", parse_dates=["date"]).set_index("date")
     j = pd.read_csv(DATA_DIR / "macro" / "mof_jgb_yields_daily_1974_2026.csv", parse_dates=["date"]).set_index("date")
     return f.join(j[["2Y", "10Y"]].rename(columns={"2Y": "JGB2Y", "10Y": "JGB10Y"}), how="outer")
+
+
+def load_dukascopy_ticks(year: int, month: int) -> pd.DataFrame:
+    """Dukascopy ticks for one month (from scripts/fetch_dukascopy.py ticks), prices in JPY."""
+    from .dukascopy_store import load_tick_month
+    return load_tick_month(SYMBOL, DATA_DIR / "dukascopy", year, month)

@@ -20,6 +20,8 @@ catalogued there and not here, so each file held one true fact and one stale one
 | `bars_1min/dukascopy_bid_2007_2023.parquet` | 2007-01 → 2023-03 | 1-min BID OHLC + Dukascopy volume | Dukascopy export via github.com/EPSOFT/Database-Currency-Pair | **Gappy**: 2007–10 ≈ 85% complete; 2011–18 only 40–65%; **2020 missing**; 2023 ends 31 Mar. Use for 2007–2014 only. Volume = Dukascopy liquidity, not market volume. |
 | `bars_1min/eightcap_bidask_2024_2026.parquet` | 2024-06-19 → 2026-06-05 | 1-min bid/ask close, bid OHLC, mean spread, tick count | Eightcap MT5 raw-spread account via github.com/rForex/ForexEightcapUSDJPYi_{2024,2025,2026} | **Real bid/ask.** Server time = NY + 7h (verified: spread spike at 17:00 NY rollover). Covers 2026-04-30 intervention. |
 | `ticks/eightcap/USDJPY_YYYYMM.parquet` | same | every quote update, bid/ask as int (price × 1000) | same | ~45M ticks. `datasets.load_ticks("202504")` returns JPY prices. |
+| `dukascopy/USDJPY/m1/YYYY/USDJPY_m1_YYYYMM.parquet` (+ `.json` manifest) | 2003-05-04 → yesterday, once fetched | 1-min **bid AND ask** OHLC (int32 points, price = value × 0.001) + Dukascopy bid/ask volume; minute-open labels, UTC | Dukascopy daily `{BID,ASK}_candles_min_1.bi5` via `scripts/fetch_dukascopy.py m1` | **Real bid/ask; not yet downloaded.** Flat zero-volume filler minutes dropped. Candle field order verified on every file. `datasets.load_minute('dukascopy_bidask')`. Coverage per year: `scripts/fetch_dukascopy.py status`. |
+| `dukascopy/USDJPY/ticks/YYYY/USDJPY_ticks_YYYYMM.parquet` (+ `.json`) | 2003-05-04 → yesterday, once fetched | every tick, bid/ask int32 points + volumes, UTC ns | Dukascopy hourly `HHh_ticks.bi5` via `scripts/fetch_dukascopy.py ticks` | **Not yet downloaded** (~8–14 h, ~3–4 GB). Weekend hours Fri 22:00 → Sun 20:00 UTC skipped and audited each month. Manifest lists empty weekday hours. `datasets.load_dukascopy_ticks(y, m)`. Separate from `download.py`'s per-day `USDJPY/` and `tokyo_hours/` trees. |
 | `quarantine/getdata_2026_sample.parquet` | 2026-03 → 2026-09 | 1-min OHLC | getdata-finance GitHub sample | **Do not use.** Returns match (ρ=0.96) but levels drift ±50–150 pips vs two independent sources. |
 
 **Cross-checks run:** Dukascopy vs HistData (2017, 2021) and HistData vs Eightcap (2024–25): lag 0,
@@ -29,8 +31,8 @@ median level difference 0.0–0.2 pips. Intervention days land where reported (e
 **Spread profile (Eightcap, median pips by JST hour):** ~0.23–0.30 all session hours, 0.33–0.36
 around 08:00–09:00, ~5.0 in the 06:00 hour alone (NY rollover), decaying to ~0.60 at 07:00 and ~0.36 by 08:00. Retail IBKR spreads will differ — log your own.
 
-**Not obtained (blocked from the seeding environment):** Dukascopy tick data 2003→now
-(`scripts/download.py`), HistData 2000–2014 and 2025-05→now (`fetch_official.py --histdata`),
+**Not obtained (blocked from the seeding environment):** Dukascopy bid/ask 2003→now
+(`scripts/fetch_dukascopy.py`, rows above; or `scripts/download.py` for per-day ticks), HistData 2000–2014 and 2025-05→now (`fetch_official.py --histdata`),
 TrueFX, CME 6J futures volume (paid: Databento/CME DataMine).
 
 ## Positioning
