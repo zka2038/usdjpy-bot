@@ -38,6 +38,25 @@ unaffected.
 **Compare against control days, not zero.** An effect present on every day is
 time-of-day drift, not the flow you hypothesised.
 
+**The trial count is a shared, depletable resource.** Every hypothesis run on
+USDJPY 2007-2024 raises `stats.expected_max_sharpe` for *every* result on that
+sample, retroactively. Spec 004's prefix leg (per-trade SR 0.1062, n=882) passes
+the Deflated Sharpe hurdle of 0.95 **up to N=8 trials and fails from N=9**: at the
+5 specs run so far DSR is 0.9744, at N=18 it is 0.9013. So the repo has **three
+hypotheses of headroom** on this sample, and specs 006-018 are thirteen. Run them
+on other pairs or other periods, or accept that they cost spec 004 its clearance.
+Declare in each new spec which sample it spends. `stats.deflated_sharpe` is the
+arbiter, not the t=3 bar below, which was set without reference to any trial
+count. (The 0.9744 also assumes skew 0 and Pearson kurtosis 3; FX trade returns
+are fat-tailed, so compute them from the trade series and expect it to fall.)
+
+**The holdout cannot rescue a marginal result.** Freezing spec 004 and spending
+the holdout looks like the clean way out and is not: 1.43 years to the 2026-06-05
+data end is ~70 prefix trades, SE 2.328 pips against an effect of 2.068, so the
+expected t is 0.89 and power is **14% at alpha=0.05**, 23% at 0.10. It would
+almost certainly return an uninformative null, and the holdout is spent once.
+Check the power of a holdout test before spending it.
+
 **Pre-declare parameters.** No grid-searching entry/exit times over the full sample.
 Each tuned number spends statistical power and there is none spare — see
 `Research/Strategy/Hypothesis Review H1 to H3.md` §2.

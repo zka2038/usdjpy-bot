@@ -24,7 +24,29 @@ data (003). One survives (004), blocked on cost provenance.
 
 ## 2. The one next action that matters
 
-**First, re-run both studies on committed code.** Until the commit carrying this
+**Before anything else: specs 006-018 cannot all be run on USDJPY 2007-2024.**
+Thirteen new specs were declared after this handoff was first written, which is
+exactly the pool-widening it asked for — but the trial count is shared. Spec 004's
+prefix leg passes the Deflated Sharpe hurdle up to **N=8** trials and fails from
+**N=9**; five specs have been run, so the headroom is **three**. At N=18 its DSR
+falls from 0.9744 to 0.9013 and the only surviving result in the project stops
+clearing multiple testing. Nothing about spec 004 changes — the erosion is purely
+in how many other things were tried on the same 18 years.
+
+Two ways through, and they are not equivalent:
+- **Run the new specs on other JPY crosses.** This is the breadth study already
+  recommended below, and it now has a second and stronger justification: fresh
+  samples do not tax USDJPY's trial count, and a mechanism that appears in EURJPY
+  and AUDJPY is better evidence than the same mechanism re-measured in USDJPY.
+- **Spend the holdout on spec 004 first.** Tempting and wrong: ~70 prefix trades
+  gives SE 2.328 pips against a 2.068-pip effect, so expected t is 0.89 and power
+  is 14%. It would burn the holdout for a null that means nothing.
+
+So: freeze nothing, spend no holdout, and route the new specs onto other pairs.
+Whatever is decided, record in each of 006-018 which sample it spends, because
+that is now a scarce quantity rather than a formality.
+
+**Then re-run both studies on committed code.** Until the commit carrying this
 paragraph, `datasets._with_synthetic_ask` keyed the synthetic spread on the bar's
 own hour rather than the execution hour. The fix was documented in `CLAUDE.md`
 trap 6 and written up in spec 004, but it lived only in a working tree — a clean

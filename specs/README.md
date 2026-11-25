@@ -8,10 +8,10 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 
 | # | Spec | Priority tier / author | Horizon | Data ready? | Status |
 |---|---|---|---|---|---|
-| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | testing |
+| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative) |
 | 002 | [MOF/BoJ intervention disclosure](002-intervention-disclosure.md) | bzk | — | — | rejected |
-| 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | testing |
-| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | testing |
+| 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | rejected below SR 0.73; undecidable 0.73–0.98 |
+| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | effect confirmed (t +3.15 / +3.11); separation unanswerable; tradeability blocked on spread |
 | 005 | [Rate-path revision, trade simulation (H3)](005-rate-path-trade-test.md) | Haru | — | — | rejected |
 | 006 | [Weekend-gap reversal](006-weekend-gap-reversal.md) | Tier 1 #1 | Mon intraday – 3 days | Y (check Sunday-open bars) | idea |
 | 007 | [No-news 1-min shock fade](007-no-news-shock-fade.md) | Tier 1 #2 | 15–60 min | partial (release calendar) | idea |
