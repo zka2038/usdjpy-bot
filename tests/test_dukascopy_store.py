@@ -80,7 +80,9 @@ def make_fetcher(session):
 
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
+    monkeypatch.setattr(ds, "_sleep", lambda s: None)
     monkeypatch.setattr(ds.time, "sleep", lambda s: None)
+    ds.STOP.clear()
 
 
 TODAY = dt.date(2026, 11, 25)
@@ -297,3 +299,50 @@ def test_pushback_escalates_once_per_cooldown_not_per_worker():
     for _ in range(2):                    # two workers cut off at the same moment
         f._pushback("Connection reset by peer")
     assert f._pushback_level == 1 and len(logs) == 1 and "30s" in logs[0] and "reset by peer" in logs[0]
+
+
+def test_stop_wakes_sleeping_workers_immediately():
+    import threading, time as _t
+    ds.STOP.clear()
+    errs = []
+
+    def worker():
+        try:
+            ds.STOP.wait(0)            # real wait path, not the patched _sleep
+            if ds.STOP.wait(30):
+                raise ds.Stopped()
+        except ds.Stopped:
+            errs.append("stopped")
+
+    th = threading.Thread(target=worker)
+    th.start()
+    t0 = _t.monotonic()
+    ds.STOP.set()
+    th.join(5)
+    assert errs == ["stopped"] and _t.monotonic() - t0 < 2
+    ds.STOP.clear()
+
+
+def test_root_cause_unwraps_requests_chain():
+    inner = ConnectionResetError(54, "Connection reset by peer")
+    try:
+        try:
+            raise inner
+        except ConnectionResetError as e:
+            raise ds.requests.ConnectionError("Max retries exceeded with url: /x") from e
+    except ds.requests.ConnectionError as outer:
+        assert ds.root_cause(outer).startswith("ConnectionResetError")
+
+
+def test_probe_reports_each_file_without_retrying(monkeypatch):
+    monkeypatch.setattr(ds, "internet_up", lambda: True)
+
+    class S(FakeSession):
+        def get(self, url, timeout=None):
+            if "/2003/" in url:
+                raise ds.requests.ConnectionError("refused")
+            return super().get(url, timeout)
+
+    rows = ds.probe(session=S())
+    assert rows[0]["result"] == "up" and len(rows) == 5
+    assert rows[1]["result"].startswith("ConnectionError") and rows[3]["result"].startswith("HTTP 200")

@@ -58,6 +58,32 @@ CANDLE_REC = np.dtype([("sec", ">u4"), ("a", ">u4"), ("b", ">u4"), ("c", ">u4"),
 SCHEMA_VERSION = 1
 
 
+STOP = threading.Event()  # set on Ctrl-C so sleeping workers wake up and exit at once
+
+
+class Stopped(RuntimeError):
+    """Raised inside workers once STOP is set."""
+
+
+def _sleep(seconds: float) -> None:
+    if seconds > 0 and STOP.wait(seconds):
+        raise Stopped()
+    if STOP.is_set():
+        raise Stopped()
+
+
+def root_cause(e: BaseException) -> str:
+    """Innermost exception in a requests/urllib3 chain, e.g. 'ConnectionResetError: [Errno 54] ...'."""
+    seen, cur = set(), e
+    while True:
+        nxt = getattr(cur, "reason", None) or cur.__cause__ or cur.__context__
+        if nxt is None or id(nxt) in seen or not isinstance(nxt, BaseException):
+            break
+        seen.add(id(cur))
+        cur = nxt
+    return f"{type(cur).__name__}: {cur}"
+
+
 class FetchError(RuntimeError):
     """A file could not be downloaded or decoded after all retries."""
 
@@ -190,9 +216,7 @@ class AdaptiveRate:
             now = time.monotonic()
             slot = max(self._next, now)
             self._next = slot + 1.0 / self.rate
-        delay = slot - time.monotonic()
-        if delay > 0:
-            time.sleep(delay)
+        _sleep(slot - time.monotonic())
 
     def success(self) -> None:
         with self._lock:
@@ -252,7 +276,7 @@ class OnlineGate:
             t0 = time.monotonic()
             self.log(f"  offline - pausing all workers, checking every {self.poll:.0f}s ...")
             while not self.check():
-                time.sleep(self.poll)
+                _sleep(self.poll)
             dt_ = time.monotonic() - t0
             self.paused_seconds += dt_
             self._resumed_at = time.monotonic()
@@ -266,7 +290,7 @@ class Fetcher:
 
     rate: AdaptiveRate
     retries: int = 8
-    timeout: tuple[float, float] = (10.0, 60.0)
+    timeout: tuple[float, float] = (10.0, 30.0)
     raw_cache: pathlib.Path | None = None
     session_factory: Callable[[], requests.Session] = requests.Session
     gate: OnlineGate | None = None
@@ -309,14 +333,14 @@ class Fetcher:
                 self.requests_made += 1
             except requests.RequestException as e:  # timeouts, resets, DNS, offline
                 kind = type(e).__name__
-                last = f"{kind}: {e}"
+                last = f"{kind}: {root_cause(e)}"
                 if (isinstance(e, requests.ConnectionError) and self.gate is not None
                         and offline_rounds < self.max_offline_rounds and self.gate.wait_until_online()):
                     offline_rounds += 1      # we were offline: free retry, no slowdown
                     continue
                 self.failures[kind] += 1
                 if isinstance(e, requests.ConnectionError):   # online, but Dukascopy cut us off
-                    self._pushback(detail=str(e))
+                    self._pushback(detail=root_cause(e))
                 else:
                     self._backoff(attempt, throttle=True)
                 attempt += 1
@@ -366,15 +390,15 @@ class Fetcher:
                 self._pushback_until = now + wait
                 self.rate.throttled(cooldown=wait)
                 self.log(f"  Dukascopy is dropping connections (internet OK) - backing off {wait:.0f}s, "
-                         f"rate now {self.rate.rate:.1f}/s  [{detail[:90]}]")
+                         f"rate now {self.rate.rate:.1f}/s\n    cause: {detail[:200]}")
             remaining = self._pushback_until - now
-        time.sleep(max(0.0, remaining) * (0.9 + 0.2 * random.random()))
+        _sleep(max(0.0, remaining) * (0.9 + 0.2 * random.random()))
 
     def _backoff(self, attempt: int, throttle: bool) -> None:
         delay = min(120.0, 2.0 ** attempt) * (0.5 + random.random())
         if throttle:
             self.rate.throttled(cooldown=delay)
-        time.sleep(delay)
+        _sleep(delay)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -450,13 +474,23 @@ def _check_prices(sym: str, bid: np.ndarray, ask: np.ndarray, what: str) -> dict
 def _parallel(fetcher: Fetcher, jobs: list, workers: int) -> tuple[dict, list]:
     """Run (key, url, decode) jobs; return ({key: result}, [errors]). Never raises for one bad file."""
     results, errors = {}, []
-    with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+    ex = cf.ThreadPoolExecutor(max_workers=workers)
+    try:
         futs = {ex.submit(fetcher.get, url, dec): key for key, url, dec in jobs}
         for f in cf.as_completed(futs):
             try:
                 results[futs[f]] = f.result()
             except (FetchError, ValidationError) as e:
                 errors.append(f"{futs[f]}: {e}")
+            except Stopped:
+                pass
+    except KeyboardInterrupt:
+        STOP.set()                      # wake every sleeping worker so they exit now
+        ex.shutdown(wait=True, cancel_futures=True)
+        raise
+    ex.shutdown(wait=True)
+    if STOP.is_set():
+        raise KeyboardInterrupt
     return results, errors
 
 
@@ -573,6 +607,7 @@ def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Pat
              raw_cache: pathlib.Path | None = None, today: dt.date | None = None,
              fetcher: Fetcher | None = None, log: Callable[[str], None] = print) -> list[dict]:
     """Download `kind` ('ticks' or 'm1') month by month. Safe to interrupt and re-run."""
+    STOP.clear()
     today = today or dt.datetime.now(dt.timezone.utc).date()
     start = max(start, EARLIEST.get(sym, start))
     if end < start:
@@ -618,6 +653,29 @@ def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Pat
     if fetcher.gate is not None and fetcher.gate.pauses:
         log(f"{kind}: paused {fetcher.gate.pauses}x for being offline, {fetcher.gate.paused_seconds / 60:.1f} min total")
     return out_manifests
+
+
+def probe(sym: str = "USDJPY", session: requests.Session | None = None) -> list[dict]:
+    """Request a few known files ONCE each (no retries, no backoff) and report exactly what happens.
+    Tells a temporary IP block (everything fails) from a problem with particular dates."""
+    s = session or requests.Session()
+    if hasattr(s, "headers"):
+        s.headers.update({"User-Agent": "usdjpy-bot research downloader (python-requests)"})
+    targets = [("m1 2003-05-05 BID", candle_url(sym, dt.date(2003, 5, 5), "BID")),
+               ("m1 2014-03-04 BID", candle_url(sym, dt.date(2014, 3, 4), "BID")),
+               ("m1 2024-07-09 BID", candle_url(sym, dt.date(2024, 7, 9), "BID")),
+               ("tick 2024-07-09 10h", tick_url(sym, dt.datetime(2024, 7, 9, 10)))]
+    rows = [{"file": "internet (neutral hosts)", "result": "up" if internet_up() else "DOWN", "seconds": None}]
+    for name, url in targets:
+        t0 = time.monotonic()
+        try:
+            r = s.get(url, timeout=(10, 30))
+            res = f"HTTP {r.status_code}, {len(r.content):,} bytes"
+        except requests.RequestException as e:
+            res = f"{type(e).__name__} <- {root_cause(e)}"
+        rows.append({"file": name, "result": res[:160], "seconds": round(time.monotonic() - t0, 2)})
+        time.sleep(2)
+    return rows
 
 
 def status(sym: str, out: pathlib.Path) -> pd.DataFrame:

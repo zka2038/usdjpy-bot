@@ -5,6 +5,7 @@
     python scripts/fetch_dukascopy.py both                # m1 first, then ticks
     python scripts/fetch_dukascopy.py ticks --start 2007-01-01 --end 2024-12-31
     python scripts/fetch_dukascopy.py status              # coverage per year from the manifests
+    python scripts/fetch_dukascopy.py probe               # one request each to 4 known files: diagnose blocks
 
 Safe to interrupt (Ctrl-C) and re-run: finished months are skipped, the month in flight is
 re-fetched, months still in progress ('partial') are refreshed. Each month is written
@@ -29,10 +30,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd  # noqa: E402
 
 from usdjpy.config import DATA_DIR, SYMBOL  # noqa: E402
-from usdjpy.dukascopy_store import EARLIEST, download, status  # noqa: E402
+from usdjpy.dukascopy_store import EARLIEST, download, probe, status  # noqa: E402
 
 p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-p.add_argument("what", choices=["m1", "ticks", "both", "status"])
+p.add_argument("what", choices=["m1", "ticks", "both", "status", "probe"])
 p.add_argument("--symbol", default=SYMBOL)
 p.add_argument("--start", type=dt.date.fromisoformat, default=None, help="default: earliest available")
 p.add_argument("--end", type=dt.date.fromisoformat, default=None, help="default: yesterday (UTC)")
@@ -44,6 +45,11 @@ p.add_argument("--all-hours", action="store_true", help="also request weekend ho
 p.add_argument("--overwrite", action="store_true", help="re-download months already marked complete")
 p.add_argument("--raw-cache", type=pathlib.Path, default=None, help="keep original .bi5 files in this folder")
 a = p.parse_args()
+
+if a.what == "probe":
+    for row in probe(a.symbol):
+        print(f"{row['file']:<26} {'' if row['seconds'] is None else str(row['seconds']) + 's':>7}  {row['result']}")
+    sys.exit(0)
 
 if a.what == "status":
     s = status(a.symbol, a.out)
