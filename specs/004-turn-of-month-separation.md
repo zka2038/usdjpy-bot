@@ -1,6 +1,6 @@
 # Spec 004: turn-of-month separation
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.47 / +3.34 net, 83% / 80% power, as run after the 2026-11-25 HistData DST fix; was t +3.15 / +3.11, 74% / 73%); separation unanswerable; tradeability blocked on spread; gap fill declared 2026-11-25, figures to be re-derived (see *Gap fill*)
+**Author:** bzk · **Date:** 2026-11-24 · **Status (2026-11-25, after the independent review):** B differs from the unmatched control (mid pips, t +3.28 prefix / +2.80 postfix), but **not from weekday-matched control** (t +1.91 prefix / +2.28 postfix, below the 2.5 bar), so a Gotobi-specific effect is **not established**; separation unanswerable; kill criterion 4 passes; criterion 5 pending the measured column; tradeability blocked on spread; gap fill declared 2026-11-25, figures to be re-derived (see *Gap fill*)
 
 **This spec exists to resolve a confound in spec 001, not to find a new effect.**
 Read §5 of `Research/Strategy/Hypothesis Review H1 to H3.md` first.
@@ -203,9 +203,11 @@ same day after the HistData DST fix** (`datasets.fix_histdata_dst`; see *Second 
 below). Every table shows the corrected figure first and the pre-fix one beside it.
 The pre-fix trade CSVs are kept in `results/archive/004_as_run_pre_dst_fix/`, and
 `scripts/004_spread_sensitivity.py --results-dir` on that folder reproduces every
-pre-fix number below. Day counts:
-A 234, B 1159, C 3357, A/B overlap 0. Month-end is 234 of spec 001's 1393
-treatment days = **17%**.
+pre-fix number below. Day counts, pre-holdout (the days traded): A 216, B 1075, C 3114, A/B overlap 0.
+Month-end is 216 of spec 001's 1291 pre-holdout treatment days = **16.7%**. (This
+line read A 234, B 1159, C 3357 and 234/1393 = 17% until 2026-11-25; those counts ran
+to the end of the bar data in 2026 and included post-holdout calendar dates, though
+no post-holdout prices were used.)
 
 ### The clean test — mid_pips, no cost assumption
 
@@ -220,6 +222,18 @@ and 5.1 / 4.9 pips, which were computed at t=1.96 (`004_spread_sensitivity.py` h
 2.80 standard errors); the corrected pre-fix values are 5.83 / 5.72, 2.50 / 1.93 and
 6.11 / 5.88. No verdict changes.
 
+**Weekday-matched (declared 2026-11-25, see *Gap fill*; this as-run run is not
+blind):**
+
+| Test | prefix_long | postfix_short | MDE @ t=2.5 | verdict |
+|---|---|---|---|---|
+| A vs C | −0.87 (t −0.49) | +1.85 (t +1.08) | 5.87 / 5.72p | null, uninformative |
+| **B vs C** | **+1.56 (t +1.91)** | **+1.46 (t +2.28)** | 2.73 / 2.14p | **not distinguishable at 2.5** |
+| A vs B | −2.45 (t −1.35) | +0.39 (t +0.22) | 6.08 / 5.82p | null, uninformative |
+
+See *Weekday confound* below. The unmatched B-vs-C reads conclude more than the
+matched one supports.
+
 **The hypothesis is refuted, and in the opposite direction.** This spec predicted
 month-end would dominate and Gotobi-proper would be indistinguishable from
 control. The data says Gotobi-proper differs from control in both rules, same
@@ -227,9 +241,14 @@ sign, with MDE **below** the published 2.86-pip effect — an informative positi
 Month-end shows nothing, but at an MDE about 2× the effect (at the t=2.5 bar) we cannot *see* it, which is
 not the same as it contributing nothing.
 
-**So spec 001's stated mechanism survives.** The effect lives in importer
+~~**So spec 001's stated mechanism survives.** The effect lives in importer
 settlement days, not month-end rebalancing. Its conclusion was not a month-end
-artefact.
+artefact.~~ **Withdrawn 2026-11-25.** B is 44% Fridays and C 11%, and non-Gotobi
+Fridays have their own prefix-window move. Matched by weekday, B vs C is t +1.91 /
++2.28, below the declared bar. The data shows a Tokyo-morning USD rise on B days,
+but not that it is specific to Gotobi settlement rather than to Fridays and
+pre-closure days. That is not a refutation: the matched MDE (2.73 / 2.14 pips) is
+above the matched estimates, so the matched test is under-powered.
 
 **The separation test itself fails on power**, exactly as this spec's corrected
 power section predicted (MDE 1.8× the effect). Kill criterion 2 is therefore not
@@ -242,6 +261,43 @@ own claim on a subset of its days and cannot separate the two mechanisms, which
 was this spec's entire purpose. The honest verdict is **undecidable**: the
 question it set out to answer needs roughly 2.3× the month-end sample, and 234
 pre-holdout month-end days is all 18 years provides.
+
+### Weekday confound (diagnostic, 2026-11-25; not pre-declared)
+
+Found by an independent review of this spec; decomposed by
+`scripts/004_weekday_breakdown.py`. Descriptive only: it governs nothing, declares
+no new hypothesis, and a "Friday Tokyo-morning effect" may not be traded or tested
+as a rule without its own spec. Cells are small, so read each beside its MDE (the
+script prints it).
+
+- **Composition.** Friday share: A 41%, B 44%, C 11%. A Gotobi date on a weekend rolls
+  back to Friday, and one inside a holiday break rolls back to the day before it. So
+  "last business day before a closure" is B (or A) by construction: of the 41 Mon–Thu
+  days with a 4+ day break ahead in 2007–2024, none is C.
+- **Prefix (mid pips).**
+  - Non-Gotobi Fridays move on their own: C Fridays with an ordinary weekend ahead
+    are +2.99 (n 262), against +0.54 on ordinary C Mon–Thu (difference +2.46, t 2.3).
+  - B minus C on the same weekday, Mon–Fri: −0.98, +4.81, −1.34, +2.53, +1.92.
+    Mixed signs.
+  - Matching removes about 40% of the unmatched gap: 2.47 → 1.56.
+  - The clearest Gotobi-specific contrast: Fridays that are *dated* Gotobi days (the
+    5th/10th/... falling on a Friday) are +7.00 (n 129), against +2.99 for ordinary
+    C Fridays.
+  - Fridays rolled from a weekend are +4.24 (n 242). That is not larger than dated
+    Fridays, which is weak evidence against settlement accumulated over the weekend
+    amplifying the move.
+- **Postfix.**
+  - Little Friday effect in C: +1.69 on Fridays against +0.92 Mon–Thu.
+  - B minus C by weekday: +1.91, −0.11, +1.28, +2.53, +1.51. 4 of 5 positive.
+  - Matching removes about 10% of the gap: 1.63 → 1.46.
+- **Month-end Fridays** are −4.84 in the prefix window (t −1.8) and +6.02 in the
+  postfix window (t +3.6). Descriptive only; A is n = 76–80.
+
+**Reading.** Part of the prefix B-vs-C difference is a Friday (and pre-closure)
+effect that B inherits from its roll-back rule, not something specific to Gotobi.
+Postfix is less confounded but still falls below 2.5 once matched. The filled run
+of the declared matched test is the next informative look. The fill matters for it:
+more B and C days shrink the matched MDE, which currently sits above both estimates.
 
 ### Period stability (net pips, base costs)
 
@@ -260,12 +316,15 @@ the prefix rule and strongest most recently in the postfix.
 | | trades/yr | sd/trade | as run | era | live (73% haircut) |
 |---|---|---|---|---|---|
 | prefix_long | 48.9 | 19.7p | **0.817** (was 0.743) | 0.522 (was 0.444) | 0.221 (was 0.201) |
-| postfix_short | 52.6 | 15.5p | **0.788** (was 0.733) | 0.424 (was 0.368) | 0.213 (was 0.198) |
+| postfix_short | 52.6 | 15.5p | **0.788** (was 0.733) | 0.485 (0.424 with the entry-spread error below; 0.368 before the DST fix) | 0.213 (was 0.198) |
 
 18-year detection bar (t=2) is 0.47; multiple-testing bar (t=3) is 0.71. Both
 as-run Sharpes clear t=3. Under era-scaled spreads prefix falls to 0.52, above
-detection but below t=3, and postfix to 0.42, below detection. Before the DST
-fix prefix era was 0.44, below detection.
+detection but below t=3, and postfix to 0.485, just above detection. (Until
+2026-11-25 the postfix era column charged the short its entry spread rather than its
+exit spread and read 0.42, below detection.) Before the DST fix prefix era was 0.44,
+below detection. Every annual Sharpe here is t / √18 exactly, so it restates the
+net-vs-zero t; it is not separate evidence.
 
 *Correction to this table's earlier version:* postfix "live" read 0.10. Live is
 as-run × 0.27, as the prefix row computed it, which gives 0.198; the 0.10 was
@@ -289,7 +348,7 @@ Kill criterion 2 sets the bar at |t| ≥ 2.5, but `min_detectable_pips` was call
 with its α=0.05 default, so every MDE printed used t=1.96 and was 19% too small.
 Corrected, with the re-run's confirmed figures:
 
-| leg | effect | sig. threshold (t=2.5) | observed t | MDE@80% | power vs this effect |
+| leg | effect | sig. threshold (t=2.5) | observed t | MDE@80% | observed power, Φ(t − 2.5) |
 |---|---|---|---|---|---|
 | prefix_long B | +2.301p | 1.659p | **+3.47** | 2.218p | **83.3%** |
 | postfix_short B | +1.683p | 1.258p | **+3.34** | 1.681p | **80.1%** |
@@ -298,9 +357,14 @@ Corrected, with the re-run's confirmed figures:
 
 Before the DST fix both effects sat *between* the significance threshold and the
 80%-power MDE: significant, with roughly 74% power against an effect of that size.
-After it both are at or above the 80% MDE: prefix by 0.08 pips (83% power), postfix
-by 0.002 pips (80%). A repeat 18-year sample would find each significant about four
-times in five. The postfix margin is nil, so read it as "about 80%", not as a pass.
+After it both are at or above the 80% MDE: prefix by 0.08 pips, postfix by 0.002
+pips. ~~A repeat 18-year sample would find each significant about four times in
+five.~~ **Corrected 2026-11-25:** observed power is a function of t alone and
+assumes the true effect equals the estimate. Allowing for estimation error, the
+probability that a repeat sample clears 2.5 is Φ((t − 2.5)/√2) = **75.3% prefix, 72.5%
+postfix**, and lower once the selection of this result as the project's one
+survivor is allowed for. These figures are against zero; against weekday-matched
+control the t is 1.91 / 2.28.
 
 This is a statement about replication reliability, not detectability. An earlier
 revision of this paragraph claimed the legs fell "below floor" and did not reach
@@ -308,7 +372,7 @@ the smallest resolvable effect; that was wrong, and conflated the 80%-power
 threshold with the significance threshold. The effect is detected. What is not
 settled is the separation, below.
 
-Annualised vol is only **0.87%** (prefix; 0.86% before the DST fix), because
+Annualised vol is only **0.87%** of notional converted at 159 (1.23% at the sample's mean entry price of ~112; 0.86% at 159 before the DST fix), because
 exposure is ~2 hours per trade. That makes the strategy capital-efficient and
 leverable; at 10× it is 7.1%/yr at 8.7% vol (6.4% at 8.6% before). Sharpe is
 leverage-invariant, so the honest live expectation is 0.22, i.e. roughly 1.9%/yr at
@@ -316,17 +380,43 @@ that leverage.
 
 ### Tradeability: undecidable, and for a stateable reason
 
-Kill criterion 5 as written quoted a 1.84-pip bar, computed with the pre-fix
-0.600 spread. With the corrected hour-8 spread the `PESSIMISTIC` all-in is
-**1.236 + 0.360 = 1.60 pips**.
+**Revised 2026-11-25** (see the *evaluation note* under the kill criteria). This
+section earlier compared mean net pips with a single bar: first ~1.84, then 1.60,
+which was substituted after results were seen and is withdrawn. Both were the long
+leg's entry spread applied to both legs, priced at 159 while the trades are priced at
+their own (mean ~112). It also reported that the DST fix moved postfix across the
+bar; that was an artefact of the wrong spread and is withdrawn.
+
+Net pips, base costs (spread widened on the spread each trade pays: entry for the
+long, exit for the short):
 
 | | as run | era | era ×2 |
 |---|---|---|---|
-| prefix_long | +2.301 **passes** (was +2.068, passed) | +1.468 fails (was +1.236) | +0.233 fails (was +0.001) |
-| postfix_short | +1.683 **passes** (was +1.561, **failed**) | +0.907 fails (was +0.784) | −0.196 fails (was −0.318) |
+| prefix_long | +2.301 (t +3.47) | +1.468 (t +2.21) | +0.233 (t +0.35) |
+| postfix_short | +1.683 (t +3.34) | +1.035 (t +2.06); was +0.907 with the entry spread | +0.113 (t +0.22); was −0.196 |
 
-The DST fix moves postfix across the 1.60 bar in the as-run column, by 0.08 pips.
-It changes no other cell's verdict. The verdict still flips between columns, which is the case `004_spread_sensitivity.py`
+**Kill criterion 4** (net under `PESSIMISTIC`, computed for B for the first time on
+2026-11-25; the study had run it for A only): prefix +1.901 (t +2.86), postfix
++1.283 (t +2.55). **Passes.**
+
+**Kill criterion 5**, evaluated per trade: margin = mean of net minus
+(`PESSIMISTIC` round trip at the trade's price + the spread it pays). Passes if the
+margin is ≥ 0. Margins in pips:
+
+| | as run | era | era ×2 | measured |
+|---|---|---|---|---|
+| prefix_long | +0.850 (SE 0.663, 95% LCB −0.240): pass | −0.815: fail | −3.286: fail | **pending** |
+| postfix_short | +0.362 (SE 0.503): not resolved (within 1 SE) | −0.932: fail | −2.776: fail | **pending** |
+| prefix, bp view at 159 | +2.18 | +0.52 | −1.95 | |
+| postfix, bp view at 159 | +1.12 | −0.17 | −2.02 | |
+
+Break-even round-trip cost (mean `mid_pips`): prefix 3.31 pips = 3.16 bp, postfix
+2.63 pips = 2.37 bp. The **measured** column governs and needs the fetch; until
+then criterion 5 is **pending**. The bp view scales the effect to today's price,
+which raises it by ~42%, so tradeability at today's prices is better than the pips
+table suggests. It is not the governing column.
+
+The verdict still flips between columns, which is the case `004_spread_sensitivity.py`
 was written to detect. **The effect (1.7–2.3 pips) is the same order as the
 spread uncertainty (0.36 measured, 0.9–1.8 plausible for 2007–2024).** So "is
 this tradeable" is literally the question "what was the retail spread in
@@ -342,8 +432,12 @@ comparison is the test.
 
 - **Separation: unresolved and unresolvable at this power.** Do not claim month-end
   contributes nothing; claim only that it is invisible at n=187–193.
-- **Spec 001's mechanism: upheld.** Restate its conclusion as Gotobi-proper, not
-  Gotobi-including-month-end.
+- ~~**Spec 001's mechanism: upheld.** Restate its conclusion as Gotobi-proper, not
+  Gotobi-including-month-end.~~ **Revised 2026-11-25: not established.** B vs
+  weekday-matched control is t +1.91 / +2.28. Do not restate spec 001 as
+  Gotobi-proper on this spec's authority (see *Weekday confound*). The declared
+  matched test on the filled sample is the next look.
+- **Kill criteria 4 passes; 5 is pending** the measured-spread column.
 - **Effect: real and period-stable** on the cost-free comparison.
 - **Tradeability: blocked on spread provenance, not on statistics.** Does not
   advance to Layer 2 until either (a) `scripts/download.py` supplies genuine
@@ -386,8 +480,18 @@ and gained 2023-03-24 (n 882 → 881; 2023 now 46 of 60), and prefix C lost two 
 and gained four (2606 → 2608).
 
 Direction: **the fix strengthened every B figure** (prefix +2.068 → +2.301 pips, t
-+3.15 → +3.47; postfix +1.561 → +1.683, t +3.11 → +3.34) and flipped one verdict, the
-postfix as-run tradeability cell, by 0.08 pips. The misplaced trades sampled an hour
++3.15 → +3.47; postfix +1.561 → +1.683, t +3.11 → +3.34). ~~and flipped one verdict,
+the postfix as-run tradeability cell, by 0.08 pips~~ (withdrawn 2026-11-25: an
+artefact of charging the short its entry spread). **The strengthening is
+concentrated:** three trades carry +146 of the prefix leg's +203 pips (2020-03-10
++61, 2020-03-19 +44, 2022-11-04 +42), two of them in the March 2020 crash, and 2020
+has no Dukascopy reference. The Fed H.10 noon rate (12:00 New York) independently
+confirms the correction in every 2019–2024 window, March 2020 included: median
+distance 3.9 pips at +60 against 13.8 as stored. Every changed trade with Dukascopy
+quotes on both legs (73) now matches Dukascopy exactly; before the fix they were
+6–18 pips off (median). The fix is right; the size of the change rests on a few
+volatile days. Both bugs found by scrutinising this surviving result moved it
+upward, which is worth keeping in mind. The misplaced trades sampled an hour
 of the wrong session rather than leaning toward the hypothesis: before the fix, C
 trades in those weeks averaged −5.35 pips (prefix) and +3.54 (postfix), against near
 zero elsewhere, and B trades −0.17 and +0.55.
@@ -439,7 +543,12 @@ it changes no rule, window, group, threshold or kill criterion:
 - **Power.** On the corrected bars the as-run prefix leg already has 83% power against
   its own effect (+2.301 pips; 819 trades needed for 80%), so the power shortfall that
   motivated this fill no longer exists. The fill is kept for its other two purposes:
-  measured 2007–2014 bid/ask, and restoring the declared sample.
+  measured 2007–2014 bid/ask, and restoring the declared sample. *(Corrected later
+  on 2026-11-25: "83% power" was observed power, which restates t; the predictive
+  replication probability is 75%. And the weekday-matched test declared below has
+  matched MDEs of 2.73 / 2.14 pips against estimates of 1.56 / 1.46, so the fill's
+  extra trades matter for the test that now carries the mechanism claim. The power
+  motivation stands.)*
 - **Step 0, Feb–Jul 2023 part.** The question it asks, whether an hour offset appears
   after the 12 March US DST change, has been answered on existing data: in the stored
   file it does, from 12 to 24 March 2023, and `load_minute` now corrects it. Step 0

@@ -11,7 +11,7 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 | 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative) |
 | 002 | [MOF/BoJ intervention disclosure](002-intervention-disclosure.md) | bzk | — | — | rejected |
 | 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | rejected below SR 0.73; undecidable 0.73–0.98 |
-| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | effect confirmed (t +3.47 / +3.34 net, as run after the 2026-11-25 HistData DST fix; was +3.15 / +3.11); separation unanswerable; tradeability blocked on spread; gap fill declared (see *Dukascopy fetch*) |
+| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | B differs from unmatched control (t +3.28 / +2.80) but not from weekday-matched control (t +1.91 / +2.28, below 2.5): Gotobi-specific effect not established (2026-11-25 review); separation unanswerable; criterion 4 passes, 5 pending the measured spread; gap fill and matched test declared (see *Dukascopy fetch*) |
 | 005 | [Rate-path revision, trade simulation (H3)](005-rate-path-trade-test.md) | Haru | — | — | rejected |
 | 006 | [Weekend-gap reversal](006-weekend-gap-reversal.md) | Tier 1 #1 | Mon intraday – 3 days | Y (check Sunday-open bars) | idea |
 | 007 | [No-news 1-min shock fade](007-no-news-shock-fade.md) | Tier 1 #2 | 15–60 min | partial (release calendar) | idea |
@@ -102,8 +102,11 @@ prefix B lost 2023-03-15 and 2023-03-20 and gained 2023-03-24.
 **Power, as the decision was made:** the prefix leg needed 990 trades for 80% power against +2.068
 pips and had 882. **After the DST fix** the as-run prefix effect is +2.301 pips (sd 19.70), which
 needs 819 trades for 80% power at the t=2.5 bar, and 881 are available: 83.3% power already, and
-postfix 80.1% (945 needed, 947 available). So the power shortfall that motivated the fill no longer
-exists on the corrected bars. Filled (about 1,071 prefix and 1,072 postfix trades) power would be
+postfix 80.1% (945 needed, 947 available). ~~So the power shortfall that motivated the fill no longer
+exists on the corrected bars.~~ *Corrected later on 2026-11-25:* those are observed powers, which
+restate t (predictive replication is 75% / 72.5%), and they are against zero. Spec 004 now also
+reports a declared weekday-matched B-vs-C test, which is t +1.91 / +2.28 as run with MDEs of 2.73 /
+2.14 pips above the estimates. So the fill's power motivation stands, for the matched test. Filled (about 1,071 prefix and 1,072 postfix trades) power would be
 about 91% and 86% if the corrected effects hold. The fill's other two purposes are unchanged:
 measured 2007–2014 bid/ask for tradeability, and restoring the declared sample.
 
@@ -128,8 +131,9 @@ Option C, in order:
 
 **Why C:**
 - It restores the sample spec 004 declared, lifting the prefix leg past the 990 trades needed for
-  80% power. (After the 2026-11-25 HistData DST fix the corrected as-run prefix leg already has 83%
-  power; see *Power* above. This reason no longer applies; the other two do.)
+  80% power. (After the 2026-11-25 HistData DST fix the as-run prefix leg has 83% observed power
+  against zero, but the weekday-matched test is under-powered; see *Power* above. This reason still
+  applies, now to the matched test.)
 - It measures the spread where the uncertainty is largest, for 56% of the requests of trimmed
   A.
 - Stage 3 is the first half of trimmed A, so extending to 2015–2024 later wastes nothing.

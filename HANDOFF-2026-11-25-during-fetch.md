@@ -154,7 +154,19 @@ exited at the wrong minute.
 anything else.** It would affect spec 004's as-run figures and the 2023 part of
 spec 004's step 0.
 
-### Task 2: Deflated Sharpe from the real trade distribution
+### Task 2: Deflated Sharpe from the real trade distribution — **computed, not propagated**
+
+> **Status 2026-11-25:** `scripts/004_deflated_sharpe.py` reproduces 0.9744 / N=8 on
+> the pre-DST-fix archive. On corrected trades, at N=5 specs: prefix DSR 0.988
+> (normal) / 0.990 (sample moments), postfix 0.984 / 0.981. The sample-moment gain on
+> prefix rests on one trade (2011-03-18, +209 pips); without it max N falls from 17
+> to 10. **The user decided: count specs (N=5) for now; legs and variants stay open
+> if specs converge.** The headroom statement and the `CLAUDE.md` / `HANDOFF.md`
+> edits wait for the user, after the spec 004 review below.
+> - An independent review on 2026-11-25 found a weekday confound (B 44% Fridays, C
+>   11%): weekday-matched B vs C is t +1.91 / +2.28, below 2.5. Spec 004 now declares
+>   a matched test and evaluates kill criterion 5 per trade. See spec 004 *Results*.
+>   Note the DSR is against zero, not against matched control.
 
 `CLAUDE.md`'s trial-budget paragraph quotes DSR 0.9744 at N=5 and the pass-up-to-N=8
 headroom. Both assume skew 0 and Pearson kurtosis 3, and it says to expect them to
