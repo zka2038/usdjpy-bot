@@ -489,8 +489,10 @@ has no Dukascopy reference. The Fed H.10 noon rate (12:00 New York) independentl
 confirms the correction in every 2019–2024 window, March 2020 included: median
 distance 3.9 pips at +60 against 13.8 as stored. Every changed trade with Dukascopy
 quotes on both legs (73) now matches Dukascopy exactly; before the fix they were
-6–18 pips off (median). The fix is right; the size of the change rests on a few
-volatile days. Both bugs found by scrutinising this surviving result moved it
+6–18 pips off (median). Postfix is concentrated the same way: three trades carry
++90 of +116 pips. The fix is right; the size of the change rests on a few volatile
+days. (Reproduced by `scripts/histdata_alignment_check.py`, H.10 section, and
+`scripts/004_dst_fix_verification.py`.) Both bugs found by scrutinising this surviving result moved it
 upward, which is worth keeping in mind. The misplaced trades sampled an hour
 of the wrong session rather than leaning toward the hypothesis: before the fix, C
 trades in those weeks averaged −5.35 pips (prefix) and +3.54 (postfix), against near

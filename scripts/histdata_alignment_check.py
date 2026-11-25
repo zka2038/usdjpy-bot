@@ -32,6 +32,12 @@ also checked without one: the Sunday reopen label hour, and the lag that best
 aligns the window's intraday |return| profile with the same window's profile in
 2015-2018, which the reference comparison shows to be correctly stamped.
 
+Independent timestamp for every window, 2020 included: the Fed H.10 noon buying
+rate (data/macro/fred_h10_usdjpy_daily_1971_2026.csv) is fixed at 12:00 New York.
+Its distance from HistData's bid at noon is reported at stored offsets -60/0/+60
+and for the corrected series. Two decimals, so 1-pip resolution, and one print a
+day: a coarse check that matters where there is no minute-level reference.
+
     python scripts/histdata_alignment_check.py
 """
 from __future__ import annotations
@@ -180,6 +186,41 @@ def reference_free(hd: pd.Series, last_year: int) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def _at(s: pd.Series, ts: pd.Timestamp, stale: str = "2min") -> float:
+    """Last value at or before ts, if no older than `stale`."""
+    i = s.index.searchsorted(ts, side="right") - 1
+    return float(s.iloc[i]) if i >= 0 and ts - s.index[i] <= pd.Timedelta(stale) else np.nan
+
+
+def h10_noon(raw: pd.Series, fixed: pd.Series, years) -> pd.DataFrame:
+    """Per US/EU mismatch window: median |HistData bid - H.10 noon rate| in pips at
+    12:00 New York, reading the stored file at offsets -60/0/+60 (offset +60: the
+    true noon price sits at label noon-60) and the corrected series at 0."""
+    h10 = pd.read_csv(DATA_DIR / "macro" / "fred_h10_usdjpy_daily_1971_2026.csv",
+                      parse_dates=["date"]).set_index("date")["JPY_per_USD"].dropna()
+    rows = []
+    for a, b in us_eu_dst_mismatch_windows(years):
+        for d in pd.date_range(a.normalize(), b.normalize(), freq="D"):
+            day = d.tz_localize(None)
+            if day not in h10.index or d.day_of_week >= 5:
+                continue
+            noon = (day + pd.Timedelta("12h")).tz_localize("America/New_York").tz_convert("UTC")
+            if not (a <= noon < b):
+                continue
+            ref = h10.loc[day]
+            rec = {"window_start": str(a.date()), "date": str(day.date())}
+            for off in OFFSETS:
+                rec[f"stored_{off:+d}"] = abs(_at(raw, noon - pd.Timedelta(minutes=off)) - ref) / PIP
+            rec["corrected"] = abs(_at(fixed, noon) - ref) / PIP
+            rows.append(rec)
+    r = pd.DataFrame(rows).dropna()
+    cols = [f"stored_{o:+d}" for o in OFFSETS] + ["corrected"]
+    g = r.groupby("window_start")[cols].median()
+    g["days"] = r.groupby("window_start").size()
+    g["best_stored"] = np.array(OFFSETS)[np.argmin(g[cols[:3]].to_numpy(), axis=1)]
+    return g.reset_index()
+
+
 def run(hd: pd.Series, du: pd.Series, ec: pd.Series) -> dict:
     off = pd.concat([days_off(hd, du, "dukascopy"), days_off(hd, ec, "eightcap")], ignore_index=True)
     win = us_eu_dst_mismatch_windows(range(hd.index[0].year, hd.index[-1].year + 1))
@@ -249,6 +290,16 @@ def main() -> None:
             r[k].to_csv(RESULTS_DIR / f"histdata_alignment_{tag}_{k}.csv", index=False)
         report(r, f"histdata_bid_2015_2025.parquet {tag.upper()}"
                + (" (datasets.fix_histdata_dst applied)" if tag == "corrected" else " (as on disk)"), full)
+
+    h = h10_noon(raw, fixed, range(raw.index[0].year, raw.index[-1].year + 1))
+    h.to_csv(RESULTS_DIR / "histdata_alignment_h10_noon.csv", index=False)
+    print(f"\n{'#' * 78}\n# Fed H.10 noon rate (12:00 New York) vs HistData bid at noon, per mismatch window\n"
+          f"# median |difference| in pips; 5-day autumn windows at 1-pip resolution are noisy\n{'#' * 78}")
+    print(h.round(1).to_string(index=False))
+    late = h[h.window_start >= f"{HISTDATA_EU_DST_FROM}"]
+    best_c = late.corrected <= late[[f"stored_{o:+d}" for o in OFFSETS]].min(axis=1) + 1e-9
+    print(f"\n{HISTDATA_EU_DST_FROM}+ windows best at stored +60: {(late.best_stored == 60).sum()} of {len(late)}; "
+          f"corrected at or below every stored offset: {int(best_c.sum())} of {len(late)}")
 
 
 if __name__ == "__main__":
