@@ -9,6 +9,7 @@ Historical spreads were wider (esp. 2007-2012), so always also check PESSIMISTIC
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from .config import DATA_DIR
@@ -59,13 +60,60 @@ def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> 
                          "source": source}, index=bid.index)
 
 
+HISTDATA_EU_DST_FROM = 2019
+
+
+def us_eu_dst_mismatch_windows(years) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """UTC spans in which US and EU clocks disagree, one pair per year:
+    US spring change (2nd Sunday of March, 07:00 UTC) to EU spring change (last
+    Sunday of March, 01:00 UTC), and EU autumn change (last Sunday of October,
+    01:00 UTC) to US autumn change (1st Sunday of November, 06:00 UTC). Every
+    boundary falls inside the FX weekend close."""
+    def sundays(y, m):
+        d = pd.date_range(f"{y}-{m:02d}-01", periods=31, freq="D", tz="UTC")
+        return d[(d.month == m) & (d.day_of_week == 6)]
+    out = []
+    for y in years:
+        out.append((sundays(y, 3)[1] + pd.Timedelta("7h"), sundays(y, 3)[-1] + pd.Timedelta("1h")))
+        out.append((sundays(y, 10)[-1] + pd.Timedelta("1h"), sundays(y, 11)[0] + pd.Timedelta("6h")))
+    return out
+
+
+def fix_histdata_dst(s: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
+    """Shift HistData bars +60 min inside the US/EU DST mismatch weeks from 2019 on.
+
+    The parquet was built by localising HistData's raw stamps to America/New_York.
+    That is right everywhere except here: from 2019 HistData's raw clock changes on
+    EU DST dates, so in the weeks between the US and EU changes the bar labelled T
+    carries the true T+60 price. Found by scripts/histdata_alignment_check.py: 75
+    dates against Dukascopy (2019, 2021-2023) and Eightcap (2024), all of them in a
+    mismatch window, all at +60; 2015-2018 have none. 2020, Nov 2023 and Mar 2024
+    have no second source and were checked on the reopen hour and intraday
+    volatility profile instead (same script). Windows start and end in the weekend
+    close, so the shift cannot collide with an unshifted bar.
+    """
+    idx = s.index
+    years = range(max(idx[0].year, HISTDATA_EU_DST_FROM), idx[-1].year + 1)
+    mask = np.zeros(len(idx), dtype=bool)
+    for a, b in us_eu_dst_mismatch_windows(years):
+        mask |= (idx >= a) & (idx < b)
+    new = idx.where(~mask, idx + pd.Timedelta(minutes=60))
+    out = s.copy()
+    out.index = new
+    out = out.sort_index()
+    if out.index.has_duplicates:
+        raise AssertionError("HistData DST shift produced duplicate timestamps")
+    return out
+
+
 def load_minute(source: str = "combined") -> pd.DataFrame:
-    """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04, complete),
+    """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04; gappy Feb-Jul 2023, DST-corrected),
     'eightcap' (2024-06 to 2026-06, real bid/ask), or 'combined' (best available per period)."""
     if source == "dukascopy":
         return _with_synthetic_ask(pd.read_parquet(BARS / "dukascopy_bid_2007_2023.parquet")["close"], "dukascopy")
     if source == "histdata":
-        return _with_synthetic_ask(pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")["close"], "histdata")
+        bid = fix_histdata_dst(pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")["close"])
+        return _with_synthetic_ask(bid, "histdata")
     if source == "eightcap":
         e = pd.read_parquet(BARS / "eightcap_bidask_2024_2026.parquet")
         return pd.DataFrame({"bid": e["bid"].astype("float64"), "ask": e["ask"].astype("float64"),
