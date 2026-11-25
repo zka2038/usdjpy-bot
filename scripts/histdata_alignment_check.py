@@ -132,7 +132,7 @@ def transition_weeks(hd: pd.Series, ref: pd.Series, ref_name: str) -> pd.DataFra
 def reopen_hours(s: pd.Series, name: str) -> pd.DataFrame:
     """UTC hour of the first bar after each Sunday weekend gap, by NY DST regime."""
     idx = s.index
-    gaps = idx[1:][np.diff(idx.asi8) > 24 * 3600 * 10**9]
+    gaps = idx[1:][(idx[1:] - idx[:-1]) > pd.Timedelta("24h")]
     gaps = gaps[gaps.day_of_week == 6]
     df = pd.DataFrame({"hour": gaps.hour, "regime": np.where(is_edt(gaps), "EDT", "EST")})
     t = df.groupby(["regime", "hour"]).size().unstack(fill_value=0)
@@ -144,7 +144,7 @@ def _abs_ret_profile(s: pd.Series) -> np.ndarray:
     """Mean |1-min return| by UTC minute of day, consecutive minutes only, smoothed
     with a 15-minute circular moving average."""
     idx = s.index
-    ok = np.diff(idx.asi8) == 60 * 10**9
+    ok = np.asarray((idx[1:] - idx[:-1]) == pd.Timedelta("1min"))
     r = np.abs(np.diff(s.to_numpy()))[ok]
     mod = (idx[1:][ok].hour * 60 + idx[1:][ok].minute).to_numpy()
     prof = pd.Series(r).groupby(mod).mean().reindex(range(1440)).interpolate(limit_direction="both").to_numpy()
@@ -172,7 +172,7 @@ def reference_free(hd: pd.Series, last_year: int) -> pd.DataFrame:
             continue
         prof = _abs_ret_profile(s)
         corr = {lag: np.corrcoef(prof, np.roll(refs[season], -lag))[0, 1] for lag in OFFSETS}
-        gaps = s.index[1:][np.diff(s.index.asi8) > 24 * 3600 * 10**9]
+        gaps = s.index[1:][(s.index[1:] - s.index[:-1]) > pd.Timedelta("24h")]
         out.append({"window_start": str(a.date()), "window_end": str(b.date()), "season": season,
                     "bars": len(s), "reopen_label_hours": ",".join(str(h) for h in gaps.hour),
                     **{f"corr_{o:+d}": round(c, 3) for o, c in corr.items()},

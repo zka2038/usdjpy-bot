@@ -59,14 +59,71 @@ def window_trades(bars: pd.DataFrame, dates, entry: str, exit: str, side: int,
             px_in, px_out = q_in["bid"], q_out["ask"]
         mid_in, mid_out = (q_in["bid"] + q_in["ask"]) / 2, (q_out["bid"] + q_out["ask"]) / 2
         gross = side * (px_out - px_in) / PIP
+        s_in, s_out = (q_in["ask"] - q_in["bid"]) / PIP, (q_out["ask"] - q_out["bid"]) / PIP
         rows.append({
             "date": d.normalize(), "entry_utc": ts_in, "exit_utc": ts_out,
             "mid_pips": side * (mid_out - mid_in) / PIP,
             "after_spread_pips": gross,
             "net_pips": gross - cost.round_trip_pips(px_in),
-            "spread_in_pips": (q_in["ask"] - q_in["bid"]) / PIP,
+            "spread_in_pips": s_in,
+            # Columns below were added 2026-11-25 and change none of the above.
+            "spread_out_pips": s_out,
+            # Spread paid relative to the BID path, which is the observed series for
+            # bid-only sources: a long buys bid+s at entry, a short buys bid+s at exit.
+            # Scale this, not spread_in_pips, when widening spreads for a short.
+            "spread_paid_pips": s_in if side > 0 else s_out,
+            "mid_in": mid_in,
+            "source": q_in.get("source", None),
         })
     return pd.DataFrame(rows).set_index("date") if rows else pd.DataFrame()
+
+
+def tradeability_margin(trades: pd.DataFrame, cost: CostModel, spread_mult: float | np.ndarray = 1.0) -> pd.Series:
+    """Spec 004 kill criterion 5, per trade: net pips minus the all-in cost under `cost`.
+
+    net_i  = net_pips_i - (k_i - 1) * spread_paid_i     (spread widened by k, bid-anchored)
+    bar_i  = cost.round_trip_pips(price_i) + k_i * spread_paid_i
+    margin = net_i - bar_i; the criterion passes if its mean is >= 0.
+
+    `net_pips` already carries the base round trip, so this is a cost-doubling test,
+    as declared. Priced at each trade's own entry mid, as `net_pips` is.
+    """
+    k = np.asarray(spread_mult, dtype=float)
+    s = trades["spread_paid_pips"].to_numpy()
+    net = trades["net_pips"].to_numpy() - (k - 1.0) * s
+    bar = np.array([cost.round_trip_pips(p) for p in trades["mid_in"].to_numpy()]) + k * s
+    return pd.Series(net - bar, index=trades.index, name="margin_pips")
+
+
+def stratified_compare(treat: pd.DataFrame, control: pd.DataFrame, col: str = "mid_pips",
+                       strata=None, min_n: int = 2) -> dict:
+    """Treat-minus-control difference within strata, weighted by the treated group's mix.
+
+    Default strata: weekday of the (JST) date index. Declared in spec 004 *Weekday-
+    matched comparison*: d_w = mean_T,w - mean_C,w; D = sum (n_T,w/n_T') d_w;
+    SE^2 = sum (n_T,w/n_T')^2 (s2_T,w/n_T,w + s2_C,w/n_C,w). Strata with fewer than
+    `min_n` trades in either group are dropped and listed.
+    """
+    def key(df):
+        return pd.Series(df.index.day_of_week if strata is None else strata(df.index), index=df.index)
+    a, b = treat[col].dropna(), control[col].dropna()
+    ka, kb = key(a), key(b)
+    used, dropped, d, var, w = [], [], [], [], []
+    for s in sorted(set(ka) | set(kb)):
+        xa, xb = a[ka == s], b[kb == s]
+        if len(xa) < min_n or len(xb) < min_n:
+            dropped.append(s)
+            continue
+        used.append(s)
+        d.append(xa.mean() - xb.mean())
+        var.append(xa.var(ddof=1) / len(xa) + xb.var(ddof=1) / len(xb))
+        w.append(len(xa))
+    w = np.array(w, dtype=float) / np.sum(w)
+    diff = float(np.dot(w, d))
+    se = float(np.sqrt(np.dot(w ** 2, var)))
+    return {"diff": diff, "se": se, "t": diff / se, "strata": used, "dropped": dropped,
+            "n_treat": int(sum(len(a[ka == s]) for s in used)),
+            "n_control": int(sum(len(b[kb == s]) for s in used))}
 
 
 def summarize(trades: pd.DataFrame, col: str = "net_pips") -> pd.DataFrame:

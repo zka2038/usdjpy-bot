@@ -91,12 +91,28 @@ def fix_histdata_dst(s: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     have no second source and were checked on the reopen hour and intraday
     volatility profile instead (same script). Windows start and end in the weekend
     close, so the shift cannot collide with an unshifted bar.
+
+    Guard against double correction: a file with the EU-clock error reopens on the
+    Sundays inside these windows labelled 20:xx UTC (true 21:00), a correct file at
+    21:xx. If the Sunday reopens inside the windows are mostly at 21:00 or later, the
+    file has already been corrected (e.g. rebuilt), and shifting would break it, so
+    this raises instead. Re-run scripts/histdata_alignment_check.py after any rebuild.
     """
     idx = s.index
     years = range(max(idx[0].year, HISTDATA_EU_DST_FROM), idx[-1].year + 1)
+    windows = us_eu_dst_mismatch_windows(years)
     mask = np.zeros(len(idx), dtype=bool)
-    for a, b in us_eu_dst_mismatch_windows(years):
+    for a, b in windows:
         mask |= (idx >= a) & (idx < b)
+    if len(idx) > 1:
+        reopen = idx[1:][(((idx[1:] - idx[:-1]) > pd.Timedelta("24h"))) & mask[1:]]
+        reopen = reopen[reopen.day_of_week == 6]
+        if len(reopen) and np.mean(reopen.hour >= 21) > 0.5:
+            raise AssertionError(
+                f"HistData bars already look DST-correct: {int(np.sum(reopen.hour >= 21))} of "
+                f"{len(reopen)} Sunday reopens inside the US/EU mismatch windows are at 21:00 UTC "
+                "or later, not 20:xx. fix_histdata_dst would shift them an hour late. Was the "
+                "file rebuilt? Re-run scripts/histdata_alignment_check.py.")
     new = idx.where(~mask, idx + pd.Timedelta(minutes=60))
     out = s.copy()
     out.index = new

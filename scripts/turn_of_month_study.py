@@ -25,11 +25,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import pandas as pd  # noqa: E402
 
 from usdjpy.calendars import gotobi_days, jp_business_days  # noqa: E402
-from usdjpy.config import DATA_DIR, RESULTS_DIR, SYMBOL  # noqa: E402
+from usdjpy.config import DATA_DIR, HOLDOUT_START, RESULTS_DIR, SYMBOL  # noqa: E402
 from usdjpy.costs import CostModel, PESSIMISTIC  # noqa: E402
 from usdjpy.datasets import load_minute  # noqa: E402
 from usdjpy.dukascopy import load_minute_bars  # noqa: E402
-from usdjpy.events import PERIODS, compare, summarize, window_trades  # noqa: E402
+from usdjpy.events import PERIODS, compare, stratified_compare, summarize, window_trades  # noqa: E402
 from scipy.stats import norm  # noqa: E402
 from usdjpy.stats import min_detectable_pips  # noqa: E402
 
@@ -42,6 +42,7 @@ BONF_T = 2.5   # pre-declared in spec 004: ~6 comparisons
 # |t| >= 2.5. An MDE computed at 1.96 understates the bar the effect actually has
 # to clear by 19%, which flatters every null in the output.
 BONF_ALPHA = 2 * (1 - norm.cdf(BONF_T))
+MDE_MULT = BONF_T + norm.ppf(0.80)   # MDE at 80% power against the t=2.5 bar
 
 # Same loader switch as spec 001 (scripts/gotobi_study.py), so A/B/C run on identical bars.
 ap = argparse.ArgumentParser()
@@ -60,14 +61,16 @@ control = jp.difference(month_end).difference(gotobi_proper)
 GROUPS = {"A_month_end": month_end, "B_gotobi_proper": gotobi_proper, "C_control": control}
 
 print(f"Data {start} -> {end}  ({len(bars):,} minute bars)")
+hold = pd.Timestamp(HOLDOUT_START)
 for name, idx in GROUPS.items():
-    print(f"  {name:<16} {len(idx):>5} days")
+    print(f"  {name:<16} {len(idx):>5} days to {end}, {int((idx < hold).sum()):>5} pre-holdout "
+          "(only pre-holdout days are traded)")
 overlap = len(month_end.intersection(gotobi_proper))
 print(f"  A/B overlap (must be 0): {overlap}")
 assert overlap == 0, "partition is not mutually exclusive"
-print(f"  spec 001's gotobi set was {len(gotobi_all)} days, i.e. "
-      f"{len(month_end.intersection(gotobi_all))} of them month-end "
-      f"({len(month_end.intersection(gotobi_all))/max(1,len(gotobi_all))*100:.0f}% of the treatment group)\n")
+_g, _m = gotobi_all[gotobi_all < hold], month_end.intersection(gotobi_all[gotobi_all < hold])
+print(f"  spec 001's gotobi set, pre-holdout: {len(_g)} days, {len(_m)} of them month-end "
+      f"({len(_m) / max(1, len(_g)) * 100:.1f}% of the treatment group)\n")
 
 RESULTS_DIR.mkdir(exist_ok=True)
 for rule, (t_in, t_out, side) in RULES.items():
@@ -88,10 +91,13 @@ for rule, (t_in, t_out, side) in RULES.items():
         print(f"\n{name}  (n={len(tr)}, sd={sd:.1f} pips, MDE@80%@t{BONF_T} = {mde:.1f} pips)")
         print(summarize(tr, "net_pips"))
 
-    pess = window_trades(bars, GROUPS["A_month_end"], t_in, t_out, side, PESSIMISTIC)
-    if not pess.empty:
-        print(f"\nA_month_end under PESSIMISTIC costs:")
-        print(summarize(pess, "net_pips"))
+    # Kill criterion 4, for every group (until 2026-11-25 this ran for A only).
+    # PESSIMISTIC differs from base only in slippage, so this is net_pips - 0.4.
+    for name in GROUPS:
+        pess = window_trades(bars, GROUPS[name], t_in, t_out, side, PESSIMISTIC)
+        if not pess.empty:
+            print(f"\n{name} under PESSIMISTIC costs (kill criterion 4):")
+            print(summarize(pess, "net_pips"))
 
     print("\n--- comparisons on mid_pips (no costs) ---")
     for a, b in [("A_month_end", "C_control"), ("B_gotobi_proper", "C_control"),
@@ -103,6 +109,19 @@ for rule, (t_in, t_out, side) in RULES.items():
         verdict = "DIFFERENT" if abs(c["t"]) > BONF_T else "not distinguishable"
         print(f"  {a} vs {b}: diff={c['diff']:+.3f} pips  t={c['t']:+.2f}  "
               f"p={c['p']:.4f}  -> {verdict}{flag}")
+
+    # Declared 2026-11-25 (spec 004, *Weekday-matched comparison*): B is 44% Fridays,
+    # C 11%, so the unmatched comparison mixes a weekday contrast into the group one.
+    print("\n--- weekday-matched comparisons on mid_pips (declared 2026-11-25) ---")
+    for a, b in [("A_month_end", "C_control"), ("B_gotobi_proper", "C_control"),
+                 ("A_month_end", "B_gotobi_proper")]:
+        if trades[a].empty or trades[b].empty:
+            continue
+        m = stratified_compare(trades[a], trades[b])
+        verdict = "DIFFERENT" if abs(m["t"]) > BONF_T else "not distinguishable"
+        drop = f"  dropped weekdays {m['dropped']}" if m["dropped"] else ""
+        print(f"  {a} vs {b}: diff={m['diff']:+.3f} pips  t={m['t']:+.2f}  "
+              f"MDE {MDE_MULT * m['se']:.2f}p  -> {verdict}{drop}")
 
     print("\n--- decay check: is any effect a pre-2008 artefact? ---")
     for name in ("A_month_end", "B_gotobi_proper"):
@@ -125,7 +144,10 @@ print("""KILL CRITERIA (spec 004, pre-declared)
   3. effect present pre-2008 and absent in 2015-2021 and 2022+ -> decayed
   4. fails under PESSIMISTIC
   5. TRADEABILITY (separate from significance): net pips/trade below the
-     PESSIMISTIC all-in cost (~1.84 pips at 159) does not reach Layer 2
+     PESSIMISTIC all-in cost does not reach Layer 2. Evaluated per trade since
+     2026-11-25 (spec 004 evaluation note): bar = PESSIMISTIC round trip at the
+     trade's price + the spread it pays (entry for longs, exit for shorts).
+     Judged on the measured-spread column; see 004_spread_sensitivity.py
 
 Read every null against its MDE column. A null with an MDE far above the
 published effect size (~1.8bp over 15 years for Gotobi) is uninformative, not

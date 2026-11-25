@@ -47,7 +47,7 @@ def _true_bars(start, end):
     dow, h = idx.day_of_week, idx.hour
     closed = (dow == 5) | ((dow == 4) & (h >= 21)) | ((dow == 6) & (h < 21))
     idx = idx[~closed]
-    return pd.Series(100 + (idx.asi8 // 60_000_000_000 % 100_000) / 1000, index=idx)
+    return pd.Series(100 + ((idx - T("2000-01-01", tz="UTC")) // pd.Timedelta("1min") % 100_000) / 1000, index=idx)
 
 
 def _with_eu_clock_bug(true):
@@ -65,6 +65,13 @@ def test_fix_recovers_true_timestamps(start, end):
     stored = _with_eu_clock_bug(true) if start >= "2019" else true
     fixed = fix_histdata_dst(stored)
     pd.testing.assert_series_equal(fixed, true, check_freq=False)
+
+
+def test_fix_refuses_data_that_is_already_correct():
+    """A rebuilt, correctly stamped file reopens at 21:00 UTC inside the windows;
+    shifting it would make it an hour late, so the fix must refuse."""
+    with pytest.raises(AssertionError, match="already look DST-correct"):
+        fix_histdata_dst(_true_bars("2019-03-01", "2019-04-08"))
 
 
 def test_fix_leaves_pre_2019_and_ordinary_weeks_alone():

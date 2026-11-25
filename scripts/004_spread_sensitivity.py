@@ -1,6 +1,6 @@
-"""Spec 004 results, re-read under honest spread assumptions.
+"""Spec 004 results, re-read under honest spread assumptions, and kill criteria 4 and 5.
 
-    python scripts/004_spread_sensitivity.py [--results-dir results/archive/004_as_run_pre_dst_fix]
+    python scripts/004_spread_sensitivity.py
 
 The synthetic ask in datasets.py is built from a 2024-26 Eightcap RAW-SPREAD
 account (~0.25-0.36 pips). That is the tightest retail execution available, and
@@ -8,19 +8,30 @@ it is applied to 2007-2024 when retail USDJPY commonly ran 0.6-3.0 pips. The
 understatement is 0.65-2.65 pips against a published effect of 2.86 pips, so on
 the early slice the spread assumption can be the entire result.
 
-No re-run is needed. Widening the spread is additive: a long buys at
-bid + k*s instead of bid + s, a short sells at bid and buys back at bid + k*s,
-so EITHER direction loses exactly (k-1)*s per round trip. Therefore
+No re-run is needed. Bid-only sources observe the bid; the ask is bid + s. A long
+buys bid + s at ENTRY and sells the bid; a short sells the bid and buys back
+bid + s at EXIT. Widening the spread to k*s therefore costs (k-1)*s_paid, where
+s_paid is the entry spread for a long and the EXIT spread for a short:
 
-    net_adj = net_pips - (k - 1) * spread_in_pips
+    net_adj = net_pips - (k - 1) * spread_paid_pips
 
-applied per trade, with k chosen by era. This reads the saved per-trade CSVs and
-reports the result at k = 1 (as run), era-scaled, and 2x era-scaled, so the
-reader sees sensitivity rather than one number resting on a guess.
+Until 2026-11-25 this used spread_in_pips for both legs, which charged the short
+postfix leg its entry spread (hour 9, 0.326) instead of its exit spread (hour 11,
+0.272) and understated its era columns.
+
+k is chosen by the source of the entry bar (eightcap 1.0, histdata 2.5, dukascopy
+5.0), which matches the declared era split (measured from 2024-06-19, x2.5 for
+2015-2024, x5 before) except that it classifies the 2024-06-19 boundary trade by the
+bar it actually filled on.
 
 ERA MULTIPLIERS ARE JUDGEMENT, NOT MEASUREMENT. They are set wide on purpose:
-the point is to find out whether the verdict depends on them. If it does, the
-honest answer is that the early data cannot settle the question.
+the point is to find out whether the verdict depends on them. Kill criterion 5 is
+judged on the MEASURED column (spec 004 *Gap fill*), which needs the Dukascopy
+fetch; until then it is pending and the columns here are assumptions.
+
+The trade CSVs must carry spread_paid_pips, mid_in and source (events.window_trades
+from 2026-11-25). For the pre-DST-fix archive, which predates them, use this script
+as of commit 560116c: `git show 560116c:scripts/004_spread_sensitivity.py`.
 """
 import argparse
 import sys
@@ -30,18 +41,17 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from scipy.stats import norm  # noqa: E402
 
 from usdjpy.config import RESULTS_DIR  # noqa: E402
-from usdjpy.costs import PIP  # noqa: E402
+from usdjpy.costs import PESSIMISTIC, PIP, CostModel  # noqa: E402
+from usdjpy.events import tradeability_margin  # noqa: E402
 from usdjpy.stats import min_detectable_pips  # noqa: E402
-from scipy.stats import norm  # noqa: E402
 
 pd.set_option("display.width", 150)
 
-# multiplier on the measured 2024-26 raw-spread profile, by era
-ERA = [("2024-06-19", None, 1.0),    # measured directly
-       ("2015-01-01", "2024-06-18", 2.5),
-       (None,         "2014-12-31", 5.0)]
+# multiplier on the measured 2024-26 raw-spread profile, by the entry bar's source
+ERA_BY_SOURCE = {"eightcap": 1.0, "histdata": 2.5, "dukascopy": 5.0}
 
 PUBLISHED_EFFECT_PIPS = 0.018 / 100 * 159.0 / PIP   # 1.8bp at 159 = 2.86 pips
 BONF_T = 2.5                                        # pre-declared in spec 004
@@ -53,20 +63,11 @@ BONF_ALPHA = 2 * (1 - norm.cdf(BONF_T))
 MDE_MULT = BONF_T + norm.ppf(0.80)                  # 3.342 standard errors
 YEARS = 18                                          # 2007-2024, as spec 004's bars use
 LIVE_HAIRCUT = 0.73                                 # CLAUDE.md "Two bars": median backtest-to-live
+TODAY_PRICE = 159.0
+BASE = CostModel()
 RULES = ("prefix_long", "postfix_short")
 GROUPS = ("A_month_end", "B_gotobi_proper", "C_control")
-
-
-def era_multiplier(idx: pd.DatetimeIndex) -> np.ndarray:
-    k = np.full(len(idx), np.nan)
-    for lo, hi, mult in ERA:
-        m = np.ones(len(idx), dtype=bool)
-        if lo is not None:
-            m &= idx >= pd.Timestamp(lo)
-        if hi is not None:
-            m &= idx <= pd.Timestamp(hi)
-        k[m] = mult
-    return np.nan_to_num(k, nan=1.0)
+COLS = [("net_k1", "as run", "k1"), ("net_era", "era", "era"), ("net_era2", "era x2", "era2")]
 
 
 def load(rule: str, group: str, results_dir: pathlib.Path) -> pd.DataFrame | None:
@@ -74,14 +75,18 @@ def load(rule: str, group: str, results_dir: pathlib.Path) -> pd.DataFrame | Non
     if not p.exists():
         return None
     df = pd.read_csv(p, parse_dates=["date"]).set_index("date").sort_index()
-    need = {"net_pips", "spread_in_pips", "mid_pips"}
+    need = {"net_pips", "mid_pips", "spread_paid_pips", "mid_in", "source"}
     if not need.issubset(df.columns):
-        raise SystemExit(f"{p.name} lacks {need - set(df.columns)}")
-    k = era_multiplier(df.index)
-    df["k"] = k
-    df["net_k1"] = df["net_pips"]
-    df["net_era"] = df["net_pips"] - (k - 1.0) * df["spread_in_pips"]
-    df["net_era2"] = df["net_pips"] - (2.0 * k - 1.0) * df["spread_in_pips"]
+        raise SystemExit(f"{p.name} lacks {sorted(need - set(df.columns))}: written before 2026-11-25? "
+                         "Re-run scripts/turn_of_month_study.py, or for the pre-DST-fix archive use "
+                         "`git show 560116c:scripts/004_spread_sensitivity.py`.")
+    unknown = set(df["source"]) - set(ERA_BY_SOURCE)
+    if unknown:
+        raise SystemExit(f"{p.name}: no era multiplier for sources {unknown}")
+    k = df["source"].map(ERA_BY_SOURCE).to_numpy()
+    df["k1"], df["era"], df["era2"] = 1.0, k, 2.0 * k
+    for col, _, kc in COLS:
+        df[col] = df["net_pips"] - (df[kc] - 1.0) * df["spread_paid_pips"]
     return df
 
 
@@ -89,7 +94,7 @@ def stat(x: pd.Series) -> dict:
     x = x.dropna()
     n = len(x)
     sd = x.std(ddof=1) if n > 1 else np.nan
-    return {"n": n, "mean": x.mean(), "sd": sd,
+    return {"n": n, "mean": x.mean(), "sd": sd, "se": sd / np.sqrt(n) if n > 1 else np.nan,
             "t": x.mean() / (sd / np.sqrt(n)) if n > 1 and sd > 0 else np.nan,
             "hit": (x > 0).mean(), "mde": min_detectable_pips(sd, n, alpha=BONF_ALPHA) if n > 1 else np.nan}
 
@@ -103,25 +108,60 @@ def welch(a: pd.Series, b: pd.Series) -> dict:
 
 
 def sharpe_and_power(df: pd.DataFrame) -> None:
-    """Spec 004's Sharpe and power tables for the B leg, at the t=2.5 bar.
+    """Spec 004's Sharpe and power figures for the B leg, at the t=2.5 bar.
 
-    Annual Sharpe = per-trade mean/sd x sqrt(trades per year), trades per year =
-    n / YEARS. Live = as-run x (1 - LIVE_HAIRCUT). Power against the observed
-    effect = P(t > 2.5 | true mean = observed mean) = Phi(t_obs - 2.5).
+    Both are restatements of t, printed because the spec quotes them:
+    annual Sharpe = t / sqrt(YEARS) exactly (trades per year = n / YEARS), and
+    observed power = Phi(t - 2.5) assumes the true effect equals the estimate.
+    The predictive probability that a fresh sample of the same size clears 2.5,
+    allowing for estimation error in the effect, is Phi((t - 2.5) / sqrt(2)).
     """
     x = df["net_k1"].dropna()
     n, mean, sd = len(x), x.mean(), x.std(ddof=1)
     se = sd / np.sqrt(n)
+    t = mean / se
     per_yr = n / YEARS
-    ann = {lbl: df[c].mean() / df[c].std(ddof=1) * np.sqrt(per_yr)
-           for lbl, c in [("as run", "net_k1"), ("era", "net_era"), ("era x2", "net_era2")]}
-    print("\n  --- B_gotobi_proper: Sharpe (annualised) and power at the t=2.5 bar ---")
+    ann = {lbl: df[c].mean() / df[c].std(ddof=1) * np.sqrt(per_yr) for c, lbl, _ in COLS}
+    print("\n  --- B_gotobi_proper: Sharpe (annualised; = t/sqrt(18)) and power at the t=2.5 bar ---")
     print(f"    n {n}  trades/yr {per_yr:.1f}  sd/trade {sd:.2f}p  per-trade SR {mean / sd:.4f}")
     print("    Sharpe  " + "  ".join(f"{k} {v:.3f}" for k, v in ann.items())
           + f"  live {ann['as run'] * (1 - LIVE_HAIRCUT):.3f}"
           + f"   [bars: t=2 {2 / np.sqrt(YEARS):.2f}, t=3 {3 / np.sqrt(YEARS):.2f}]")
-    print(f"    effect {mean:+.3f}p  sig. threshold {BONF_T * se:.3f}p  observed t {mean / se:+.2f}  "
-          f"MDE@80% {MDE_MULT * se:.3f}p  power vs this effect {norm.cdf(mean / se - BONF_T):.1%}")
+    print(f"    effect {mean:+.3f}p  sig. threshold {BONF_T * se:.3f}p  observed t {t:+.2f}  "
+          f"MDE@80% {MDE_MULT * se:.3f}p")
+    print(f"    observed power (= Phi(t-2.5), assumes true = estimate) {norm.cdf(t - BONF_T):.1%}  "
+          f"predictive replication (Phi((t-2.5)/sqrt2)) {norm.cdf((t - BONF_T) / np.sqrt(2)):.1%}")
+
+
+def criteria_4_and_5(df: pd.DataFrame) -> None:
+    """Kill criterion 4 (PESSIMISTIC net) and criterion 5 as evaluated per trade from
+    2026-11-25 (spec 004 evaluation note), with the standard measures beside it."""
+    p = df["mid_in"].to_numpy()
+    pess_extra = np.array([PESSIMISTIC.round_trip_pips(x) - BASE.round_trip_pips(x) for x in p])
+    k4 = stat(df["net_pips"] - pess_extra)
+    print("\n  --- B_gotobi_proper: kill criteria 4 and 5 ---")
+    print(f"    criterion 4, net under PESSIMISTIC: {k4['mean']:+.3f}p  t {k4['t']:+.2f}  (n {k4['n']})")
+    mid_bp = df["mid_pips"] * PIP / p * 1e4
+    mid_today = mid_bp * TODAY_PRICE / 1e4 / PIP
+    rt_shift = np.array([BASE.round_trip_pips(x) + PESSIMISTIC.round_trip_pips(x) for x in p]) \
+        - (BASE.round_trip_pips(TODAY_PRICE) + PESSIMISTIC.round_trip_pips(TODAY_PRICE))
+    print(f"    criterion 5 margin = mean(net_i - [PESSIMISTIC round trip at price_i + k*spread_paid_i]); "
+          "passes if >= 0")
+    print(f"    {'column':<8} {'margin':>8} {'SE':>6} {'95% LCB':>8} {'verdict':<28} {'margin @159 (bp view)':>22}")
+    for _, lbl, kc in COLS:
+        m = tradeability_margin(df, PESSIMISTIC, df[kc].to_numpy())
+        s = stat(m)
+        if abs(s["mean"]) < s["se"]:
+            v = "not resolved (|margin| < 1 SE)"
+        else:
+            v = "pass" if s["mean"] >= 0 else "fail"
+        today = stat(m + (mid_today - df["mid_pips"]) + rt_shift)
+        print(f"    {lbl:<8} {s['mean']:>+8.3f} {s['se']:>6.3f} {s['mean'] - 1.645 * s['se']:>+8.3f} {v:<28} "
+              f"{today['mean']:>+22.3f}")
+    print("    measured  (pending: needs the Dukascopy fetch; this column governs criterion 5)")
+    print(f"    break-even round-trip cost (mean mid_pips): {df['mid_pips'].mean():.3f}p = {mid_bp.mean():.3f}bp; "
+          f"median spread paid as run {df['spread_paid_pips'].median():.3f}p; "
+          f"mean entry price {p.mean():.1f}")
 
 
 def main(results_dir: pathlib.Path) -> None:
@@ -137,10 +177,11 @@ def main(results_dir: pathlib.Path) -> None:
 
         anyg = next(v for v in data.values() if v is not None)
         print(f"  sample {anyg.index[0].date()} to {anyg.index[-1].date()}")
-        kc = anyg["k"].value_counts().sort_index()
-        print("  era mix: " + ", ".join(f"k={k:.1f} on {int(v)} trades" for k, v in kc.items()))
-        print(f"  median assumed spread as run: {anyg['spread_in_pips'].median():.3f} pips")
-        print(f"  published effect to beat:     {PUBLISHED_EFFECT_PIPS:.2f} pips\n")
+        kc = anyg["era"].value_counts().sort_index()
+        print("  era mix (first group): " + ", ".join(f"k={k:.1f} on {int(v)} trades" for k, v in kc.items()))
+        print(f"  median spread paid as run: {anyg['spread_paid_pips'].median():.3f} pips "
+              f"({'entry' if rule.endswith('long') else 'exit'} spread)")
+        print(f"  published effect to beat:  {PUBLISHED_EFFECT_PIPS:.2f} pips\n")
 
         print(f"  {'group':<17} {'col':<9} {'n':>5} {'mean':>8} {'t':>7} {'hit':>6} {'MDE':>7}  reading")
         print("  " + "-" * 92)
@@ -148,7 +189,7 @@ def main(results_dir: pathlib.Path) -> None:
             df = data[g]
             if df is None:
                 continue
-            for col, lbl in [("net_k1", "as run"), ("net_era", "era"), ("net_era2", "era x2")]:
+            for col, lbl, _ in COLS:
                 s = stat(df[col])
                 if np.isnan(s["t"]):
                     continue
@@ -170,7 +211,7 @@ def main(results_dir: pathlib.Path) -> None:
             print(f"    {a} vs {b}: diff {c['diff']:+7.3f}p  t {c['t']:+6.2f}  "
                   f"MDE {c['mde']:.2f}p  -> {v}{info}{tag}")
 
-        print("\n  --- decay: does any effect survive after the fix reforms? ---")
+        print("\n  --- decay: does any effect survive after the fix reforms? (era column) ---")
         for g in ("A_month_end", "B_gotobi_proper"):
             df = data[g]
             if df is None:
@@ -192,6 +233,7 @@ def main(results_dir: pathlib.Path) -> None:
 
         if data["B_gotobi_proper"] is not None:
             sharpe_and_power(data["B_gotobi_proper"])
+            criteria_4_and_5(data["B_gotobi_proper"])
         print()
 
     if not found:
@@ -200,23 +242,23 @@ def main(results_dir: pathlib.Path) -> None:
     print("=" * 96)
     print(f"""HOW TO READ THIS
 
-      'as run'  = the 2024-26 raw-spread profile applied to every era. Optimistic
-                  before 2024 and known to be so.
-      'era'     = x2.5 for 2015-2024, x5.0 pre-2015. Judgement, set wide.
-      'era x2'  = twice that again, as a stress case.
+  'as run'  = the 2024-26 raw-spread profile applied to every era. Optimistic
+              before 2024 and known to be so.
+  'era'     = x2.5 on HistData bars (2015-2024), x5.0 on Dukascopy-export bars
+              (pre-2015), x1 on Eightcap. Judgement, set wide.
+  'era x2'  = twice that again, as a stress case.
+  'measured' (criterion 5's governing column) needs the Dukascopy fetch.
 
-      If the verdict is the same in all three columns, the spread assumption does
-      not matter and the result stands. If it flips between them, the early data
-      cannot settle the question and only the 2024-06+ bid/ask slice is admissible --
-      which is 6.5 pre-holdout months, far too few month-ends to test anything.
+  If the verdict is the same in all three columns, the spread assumption does
+  not matter. If it flips between them, only measured spreads can settle it.
 
-      The mid_pips comparisons carry NO cost assumption, so they are the clean test
-      of whether month-end and gotobi-proper behave differently. Read those first;
-      the net_pips columns only tell you whether a real difference would survive
-      execution.
+  The mid_pips comparisons carry NO cost assumption, so they are the clean test
+  of whether month-end and gotobi-proper behave differently. Read those first,
+  beside the weekday-matched versions printed by turn_of_month_study.py.
 
-      MDE is beside every number. A null whose MDE exceeds {PUBLISHED_EFFECT_PIPS:.2f} pips
-      is uninformative, not evidence of absence.""")
+  MDE is beside every number. A null whose MDE exceeds {PUBLISHED_EFFECT_PIPS:.2f} pips
+  is uninformative, not evidence of absence.""")
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
