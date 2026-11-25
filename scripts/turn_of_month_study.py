@@ -16,6 +16,7 @@ Partitions Japanese business days into three mutually exclusive groups:
 Windows are inherited UNCHANGED from spec 001 so no tuning enters through this
 spec. The test that matters is compare(A, B).
 """
+import argparse
 import sys
 import pathlib
 
@@ -26,6 +27,7 @@ import pandas as pd  # noqa: E402
 from usdjpy.calendars import gotobi_days, jp_business_days  # noqa: E402
 from usdjpy.config import DATA_DIR, RESULTS_DIR, SYMBOL  # noqa: E402
 from usdjpy.costs import CostModel, PESSIMISTIC  # noqa: E402
+from usdjpy.datasets import load_minute  # noqa: E402
 from usdjpy.dukascopy import load_minute_bars  # noqa: E402
 from usdjpy.events import PERIODS, compare, summarize, window_trades  # noqa: E402
 from usdjpy.stats import min_detectable_pips  # noqa: E402
@@ -36,7 +38,12 @@ pd.set_option("display.width", 150, "display.float_format", "{:.3f}".format)
 RULES = {"prefix_long": ("08:00", "09:55", +1), "postfix_short": ("09:55", "11:00", -1)}
 BONF_T = 2.5   # pre-declared in spec 004: ~6 comparisons
 
-bars = load_minute_bars(SYMBOL, DATA_DIR)
+# Same loader switch as spec 001 (scripts/gotobi_study.py), so A/B/C run on identical bars.
+ap = argparse.ArgumentParser()
+ap.add_argument("--source", default="combined", help="combined | histdata | dukascopy | eightcap | dukascopy-ticks")
+args = ap.parse_args()
+bars = load_minute_bars(SYMBOL, DATA_DIR) if args.source == "dukascopy-ticks" else load_minute(args.source)
+print(f"Source: {args.source}")
 start, end = bars.index[0].date(), bars.index[-1].date()
 
 jp = jp_business_days(start, end)

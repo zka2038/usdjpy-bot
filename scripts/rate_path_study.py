@@ -27,7 +27,10 @@ Two things this script enforces, both of which cost real power if ignored:
 DATA (--data mode). Place these in DATA_DIR:
   dgs2.csv        FRED DGS2            https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2
   jgbcme_all.csv  MOF JGB curve        https://www.mof.go.jp/policy/international_policy/reference/interest_rate/jgbcme_all.csv
-USDJPY comes from the existing Dukascopy pipeline. Do NOT substitute DEXJPUS.
+USDJPY comes from datasets.load_minute('combined'), as in specs 001/004. Do NOT substitute DEXJPUS.
+FRED unreachable? dgs2.csv can be assembled from Treasury's daily par-curve CSV ('2 Yr'),
+which is the same series; keep the observation_date,DGS2 layout. MOF's English file has moved to
+  https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/historical/jgbcme_all.csv
 """
 import sys
 import pathlib
@@ -93,7 +96,7 @@ def load_yields():
             continue
     jp = pd.read_csv(pd.io.common.StringIO(text), skiprows=1)
     jp.columns = [str(c).strip() for c in jp.columns]
-    jp.iloc[:, 0] = pd.to_datetime(jp.iloc[:, 0], errors="coerce")
+    jp[jp.columns[0]] = pd.to_datetime(jp.iloc[:, 0], errors="coerce")  # column assign: pandas 3 str dtype
     col2y = next((c for c in jp.columns if c in ("2", "2.0", "2Y")), None)
     if col2y is None:
         raise SystemExit(f"could not find the 2Y column in jgbcme_all.csv; columns: {list(jp.columns)[:12]}")
@@ -103,11 +106,20 @@ def load_yields():
 
 
 def run_real():
-    from usdjpy.dukascopy import load_minute_bars
-    bars = load_minute_bars(SYMBOL, DATA_DIR)
+    from usdjpy.datasets import load_minute
+    bars = load_minute("combined")
     mid = ((bars["bid"] + bars["ask"]) / 2)
-    # one decision timestamp per day: 00:00 UTC, matching build_spread's convention
+    # one decision timestamp per day: 00:00 UTC, matching build_spread's convention.
+    # The label-D value is the last bar of UTC day D, i.e. ~00:00 UTC D+1.
     px = mid.resample("1D").last().dropna()
+    # Business days only: resample("1D") also emits a Sunday stub from the ~3h of
+    # Sunday-evening UTC trading, which would make n=5 and h count 6-day weeks.
+    px = px[px.index.day_of_week < 5]
+    # Yields are naive calendar dates; a tz-aware price index reindexes to all-NaN.
+    px.index = px.index.tz_localize(None)
+    # Truncate BEFORE building forward returns: filtering on t alone lets the last
+    # h days of 2024 reach into holdout prices at t+h.
+    px = px[px.index < pd.Timestamp(HOLDOUT_START)]
 
     us2y, jgb2y = load_yields()
     sp = build_spread(us2y, jgb2y)
@@ -125,7 +137,7 @@ def run_real():
           f"{int(sig[pre].notna().sum()):,}")
     print("=" * 78)
     print(f"{'h':>3} {'n':>6} {'std rho':>9} {'std t_hc':>9} {'SEr':>6} | "
-          f"{'raw rho':>9} {'raw t_hc':>9} {'SEr':>6} | {'SR(raw)':>8} {'verdict':>22}")
+          f"{'raw rho':>9} {'raw t_hc':>9} {'SEr':>6} | {'SR(raw)':>8} {'MDE rho':>8} {'verdict':>22}")
     rows = []
     for h in HORIZONS:
         y_std = forward_return(px, h, vol)[pre]
@@ -142,11 +154,15 @@ def run_real():
             v = "exists, NOT tradeable"
         else:
             v = "SURVIVES -> Layer 2"
+        # MDE on rho at 80% power against the pre-declared |t| > BONF_T bar
+        mde_rho = (BONF_T + 0.8416) / np.sqrt(std["n"]) if std["n"] else np.nan
         print(f"{h:>3} {std['n']:>6} {std['rho']:>+9.4f} {std['t_hc']:>+9.2f} {std['se_ratio']:>6.2f} | "
-              f"{raw['rho']:>+9.4f} {raw['t_hc']:>+9.2f} {raw['se_ratio']:>6.2f} | {sr:>+8.2f} {v:>22}")
+              f"{raw['rho']:>+9.4f} {raw['t_hc']:>+9.2f} {raw['se_ratio']:>6.2f} | {sr:>+8.2f} "
+              f"{mde_rho:>8.4f} {v:>22}")
         rows.append({"h": h, **{f"std_{k}": v2 for k, v2 in std.items()},
                      **{f"raw_{k}": v2 for k, v2 in raw.items()},
-                     "sharpe_from_raw": sr, "verdict": v})
+                     "sharpe_from_raw": sr, "mde_rho": mde_rho,
+                     "mde_sharpe": mde_rho * np.sqrt(252 / h), "verdict": v})
     RESULTS_DIR.mkdir(exist_ok=True)
     pd.DataFrame(rows).to_csv(RESULTS_DIR / "003_rate_path_regression.csv", index=False)
 
