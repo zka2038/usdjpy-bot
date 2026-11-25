@@ -64,16 +64,36 @@ def fetch_hour(sym: str, hour_start: pd.Timestamp, session: requests.Session, re
     raise RuntimeError(f"Failed to download {url}")
 
 
-def fetch_day(sym: str, day: dt.date, session: requests.Session | None = None) -> pd.DataFrame:
+def fetch_day(sym: str, day: dt.date, session: requests.Session | None = None,
+              hours: tuple[int, ...] | None = None) -> pd.DataFrame:
+    """One UTC day of ticks. `hours` restricts which UTC hours are fetched."""
     session = session or requests.Session()
     start = pd.Timestamp(day, tz="UTC")
-    frames = [fetch_hour(sym, start + pd.Timedelta(hours=h), session) for h in range(24)]
+    want = range(24) if hours is None else sorted(set(hours))
+    frames = [fetch_hour(sym, start + pd.Timedelta(hours=h), session) for h in want]
     frames = [f for f in frames if len(f)]
     return pd.concat(frames).sort_index() if frames else _empty()
 
 
-def download_range(sym: str, start: dt.date, end: dt.date, out_dir: str | pathlib.Path, overwrite: bool = False) -> None:
-    """Save one parquet of ticks per UTC day to out_dir/SYM/YYYY/YYYY-MM-DD.parquet. Skips Saturdays."""
+# Tokyo-morning window used by specs 001 and 004 (08:00-11:00 JST = 23:00-02:00 UTC),
+# padded either side so events.quote_at has quotes to find at the window edges.
+# Hour 0 also covers spec 003's 00:00 UTC decision timestamp, so one hours-limited
+# download serves both specs.
+TOKYO_MORNING_HOURS = (22, 23, 0, 1, 2)
+
+
+def download_range(sym: str, start: dt.date, end: dt.date, out_dir: str | pathlib.Path,
+                   overwrite: bool = False, hours: tuple[int, ...] | None = None) -> None:
+    """Save one parquet of ticks per UTC day to out_dir/SYM/YYYY/YYYY-MM-DD.parquet. Skips Saturdays.
+
+    `hours`: restrict to these UTC hours. A full day is 24 sequential requests, so
+    2010-2024 full-day is ~112,700 requests (3-9 hours wall clock). Passing
+    TOKYO_MORNING_HOURS cuts that to ~23,500 (0.7-2 hours) and ~21% of the storage.
+
+    A partial download is NOT interchangeable with a full one: files written with
+    `hours` set contain only those hours, and `load_minute_bars` cannot tell the
+    difference. Keep partial and full downloads in separate out_dir trees.
+    """
     out_dir = pathlib.Path(out_dir)
     session = requests.Session()
     for day in pd.date_range(start, end, freq="D"):
@@ -82,7 +102,7 @@ def download_range(sym: str, start: dt.date, end: dt.date, out_dir: str | pathli
         path = out_dir / sym / f"{day.year}" / f"{day.date()}.parquet"
         if path.exists() and not overwrite:
             continue
-        ticks = fetch_day(sym, day.date(), session)
+        ticks = fetch_day(sym, day.date(), session, hours=hours)
         path.parent.mkdir(parents=True, exist_ok=True)
         ticks.to_parquet(path)
         print(f"{day.date()}: {len(ticks):>7} ticks")
@@ -103,6 +123,14 @@ def load_minute_bars(sym: str, data_dir: str | pathlib.Path, cache: bool = True)
     data_dir = pathlib.Path(data_dir)
     cache_path = data_dir / f"bars_{sym}_1min.parquet"
     files = sorted((data_dir / sym).glob("*/*.parquet"))
+    if not files and not cache_path.exists():
+        raise FileNotFoundError(
+            f"No tick data for {sym} under {data_dir / sym}.\n"
+            f"data/ is gitignored, so a fresh clone has none. Download it first:\n"
+            f"  python scripts/download.py 2010-01-01 2024-12-31 --tokyo-hours\n"
+            f"(--tokyo-hours fetches only 22:00-02:00 UTC: ~23,500 requests instead of\n"
+            f" ~112,700, enough for specs 001, 003 and 004. Omit it for a full day.)"
+        )
     if cache and cache_path.exists() and files and cache_path.stat().st_mtime >= max(f.stat().st_mtime for f in files):
         return pd.read_parquet(cache_path)
     bars = pd.concat([ticks_to_minute_bars(pd.read_parquet(f)) for f in files]).sort_index()
