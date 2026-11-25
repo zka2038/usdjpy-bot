@@ -10,7 +10,8 @@ Load everything through `usdjpy.datasets` — it handles sources, synthetic ask,
 
 | File | Coverage | Content | Source | Notes |
 |---|---|---|---|---|
-| `bars_1min/histdata_bid_2015_2025.parquet` | 2015-01 → 2025-04 | 1-min BID OHLC | HistData.com M1 via github.com/yukkiya/usd-jpy-data | **Complete** (~372k min/yr). Timestamps are NY local time *with* DST (not fixed EST as HistData documents) — verified by weekly-open time and lag-0 match vs Dukascopy & Eightcap. |
+| `bars_1min/histdata_bid_2015_2025.parquet` | 2015-01 → 2025-04 | 1-min BID OHLC | HistData.com M1 via github.com/yukkiya/usd-jpy-data | **NOT complete** — this file previously claimed "Complete (~372k min/yr)";
+spec 005 found up to ~60% of minutes missing between 08:00 and 24:00 UTC from Feb to Jul 2023 (62 decision days lost in 2023 alone). Verify a year before relying on it. Timestamps are NY local time *with* DST (not fixed EST as HistData documents) — verified by weekly-open time and lag-0 match vs Dukascopy & Eightcap. |
 | `bars_1min/dukascopy_bid_2007_2023.parquet` | 2007-01 → 2023-03 | 1-min BID OHLC + Dukascopy volume | Dukascopy export via github.com/EPSOFT/Database-Currency-Pair | **Gappy**: 2007–10 ≈ 85% complete; 2011–18 only 40–65%; **2020 missing**; 2023 ends 31 Mar. Use for 2007–2014 only. Volume = Dukascopy liquidity, not market volume. |
 | `bars_1min/eightcap_bidask_2024_2026.parquet` | 2024-06-19 → 2026-06-05 | 1-min bid/ask close, bid OHLC, mean spread, tick count | Eightcap MT5 raw-spread account via github.com/rForex/ForexEightcapUSDJPYi_{2024,2025,2026} | **Real bid/ask.** Server time = NY + 7h (verified: spread spike at 17:00 NY rollover). Covers 2026-04-30 intervention. |
 | `ticks/eightcap/USDJPY_YYYYMM.parquet` | same | every quote update, bid/ask as int (price × 1000) | same | ~45M ticks. `datasets.load_ticks("202504")` returns JPY prices. |

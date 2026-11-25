@@ -14,6 +14,7 @@ the next action, and the mistakes made getting here so they are not repeated.
 | 002 intervention disclosure | **rejected** | Real effect (−0.172 to −0.269 yen, robustness-tested) but 1.3 episodes/yr, Sharpe 0.24–0.43. Risk overlay only. |
 | 003 rate-path revision | **rejected** | Well-powered null (86% simulated power at ρ=0.05). Max abs(t_hc) 1.80 vs the 2.81 bar. Right sign at all four horizons, too small. |
 | 004 turn-of-month separation | **passed; tradeability undecidable** | Gotobi-proper differs from control, t +3.04 / +2.62, MDE below the published effect. As-run Sharpe **0.74**, the only result here to clear the t=3 bar of 0.71. |
+| 005 rate-path trade test | **rejected** | Independent H3 retest built in the CLI without `CLAUDE.md`. Three variants, NW t −0.19 / +0.47 / −0.04 against a 3.0 bar, sub-periods flipping sign. Correctly declares itself descriptive and defers to 003. |
 
 Four families died to literature (trend, calendar-as-signal, carry, risk
 appetite). Two died to calibration (H2a year-end, H1's daily test). One died to
@@ -51,6 +52,25 @@ this warning; its arithmetic checks out.
 Then re-run `scripts/turn_of_month_study.py` and
 `scripts/004_spread_sensitivity.py` on real bid/ask. That converts spec 004 from
 undecidable to decided, either way.
+
+**Financing changes what is worth testing at all.** Spec 005's most useful output
+is not its verdict but its cost line. IBKR's skim is 2.0% a year of notional in
+either direction, which is **0.883 pips per calendar day held** at 159 — 4.42 pips
+over five calendar days, before the rate differential. Each of spec 005's three
+variants gave up about 5 pips a trade to it. Against that, the largest effect
+eight signal families have produced is 2.1 pips.
+
+So the days-to-week premise this project started from is dead **on spot**, and not
+for statistical reasons: the broker takes more than twice the best available edge
+before the strategy does anything. One overnight hold alone costs 0.88 pips, which
+is 42–59% of spec 004's entire 1.5–2.1 pip effect. Spec 004 survives only because
+it holds about two hours and crosses no night.
+
+Three ways forward, in the order their cost structure favours them: stay intraday;
+move to MJY futures, which carry no financing skim (margin $280, 0.396 ticks per
+pip, deliverable — all in `CLAUDE.md`); or widen the pool only to hypotheses whose
+holding period is hours. Do not test another days-to-week spot idea without
+costing financing first.
 
 **Second priority, if 004 resolves negative:** widen the hypothesis pool. Two
 testable ideas produced one marginal survivor. A tradeable result needs ten to
@@ -106,6 +126,7 @@ in each line is right.
 | Vol-standardisation in 003 | "unnecessary, SE ratio 1.0" | **necessary**; applied upstream in `rate_path_signal`. Unscaled gives SE ratio 5.98 and 13% power; scaled gives 0.49 and 86% |
 | 004 sub-period stability | "no period significant, signs flip" | **6/6 cells positive, 4/6 at abs(t) ≥ 1.96** |
 | Location of the HistData error | "it's in CLAUDE.md" | **`Research/Strategy/Initial Strategy Survey.md`**, now corrected in place |
+| `histdata_bid_2015_2025.parquet` completeness | "Complete, ~372k min/yr" (`docs/DATA.md`) | **not complete** — up to ~60% of minutes missing 08:00–24:00 UTC, Feb–Jul 2023. Corrected in `docs/DATA.md` |
 
 Seven of these were caught by computing something rather than reasoning about it.
 Two were caught by the CLI session and were both invisible-failure modes: a
@@ -136,6 +157,14 @@ this and `scripts/rate_path_study.py` refuses to touch real data until it passes
   ran on `combined` and therefore included it, so its pre-2015 observations are
   non-randomly selected. A re-run on `histdata` alone is the clean check and
   costs about half the sample.
+- **The 2023 HistData gap lands on spec 004's entry leg and nothing else.** Up to
+  ~60% of minutes are missing between 08:00 and 24:00 UTC from Feb to Jul 2023.
+  Spec 004's prefix entry is 23:00 UTC — inside that window. Its 00:55 exit and
+  the whole postfix leg (00:55 → 02:00) are outside it. Spec 005 skips unquoted
+  decision days rather than filling them, and spec 004 should be checked for the
+  same behaviour: if it drops those days the effect is on a smaller sample than
+  reported, and if it fills them the prefix fills are wrong. **Count the 2023
+  treatment days actually filled before quoting the prefix Sharpe of 0.74 again.**
 - **MOF daily intervention detail publishes quarterly** (~100 days late), so it
   can label regimes but never be a contemporaneous input. The window
   2026-10-29 → 2026-11-26 — when USDJPY tested 160 three times — published
@@ -172,3 +201,11 @@ cost-free prices and period-stable across eighteen years, and whether it is wort
 trading turns entirely on a spread nobody measured in 2007. That is a tractable
 question with a known answer-shape, which is a better position than most of this
 project has been in.
+
+The one thing that has genuinely narrowed is the horizon. This began as a
+days-to-week project; spec 005 priced that horizon at 4.42 pips of financing over
+five days against a best-available edge of 2.1, so what remains is intraday spot
+or MJY futures. That is a smaller project than the one that was started, and a
+real answer rather than an open question — the kind of constraint worth having
+early, because it removes a whole class of hypotheses from the queue before any
+of them are tested.

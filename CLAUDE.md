@@ -24,6 +24,17 @@ the research doc, and say whether it informed selection or testing.
 IBKR 0.20bp, $2 min, 0.10 pips slippage/side) and must also survive `PESSIMISTIC`.
 Base round trip is 0.836 pips ex-spread at 159; `PESSIMISTIC` is 1.236.
 
+**Cost financing separately for anything held overnight.** `costs.financing_pips`.
+IBKR's skim is 2.0% a year of notional in either direction (2.5% under
+`PESSIMISTIC`), which is **0.883 pips per calendar day held** at 159, before the
+rate differential. Five calendar days is 4.42 pips. No effect found in this repo
+exceeds 2.1 pips, so **spot held at a days-to-week horizon is taxed past
+everything measured here** — spec 005's three variants each gave up roughly 5
+pips a trade to financing alone. Horizon is a cost question, never a power
+question (see "Two bars"). Intraday holds and MJY futures avoid the skim; spot
+held overnight does not. Spec 004 holds ~2 hours with zero nights and is
+unaffected.
+
 **Compare against control days, not zero.** An effect present on every day is
 time-of-day drift, not the flow you hypothesised.
 
@@ -150,6 +161,13 @@ All of these manufacture *positive* results from no signal.
   MJY contract's maintenance margin, so margin availability is misleading as a
   sizing guide. A stop is not protection: USDJPY moved 160.17 → 156.60 in ~11
   minutes on 2024-04-29, and MOF repeatedly chooses thin-liquidity windows.
+- `docs/DATA.md` calls `histdata_bid_2015_2025.parquet` **"Complete"**. It is not.
+  Spec 005 found **up to ~60% of minutes missing between 08:00 and 24:00 UTC from
+  February to July 2023**. Spec 004's prefix entry is 23:00 UTC, inside that
+  window; its 00:55 exit and the entire postfix leg (00:55 -> 02:00) are outside
+  it. So the gap lands on the entry leg of the only surviving result and nowhere
+  else. Count the 2023 treatment days actually filled before quoting spec 004's
+  prefix Sharpe again.
 - `data/` and `results/` are gitignored. A fresh clone has no data; symlink it or
   work in the clone that has it.
 
@@ -163,6 +181,7 @@ All of these manufacture *positive* results from no signal.
 | 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
 | 003 rate-path revision | **rejected** | well-powered null, max abs(t_hc) 1.80 vs 2.81 bar; right sign, too small |
 | 004 turn-of-month separation | **passed; tradeability undecidable** | B-vs-C different (t +3.04 / +2.62); separation itself underpowered |
+| 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.19/+0.47/-0.04 vs 3.0 bar. Financing alone took ~5 pips/trade |
 
 Eight signal families examined, six dead. Spec 004 is the only surviving effect:
 Gotobi-proper differs from control on cost-free mid prices, 6/6 sub-period cells
@@ -174,8 +193,15 @@ statistics.** Under era-scaled spreads the Sharpe falls to 0.44, below detection
 What would settle it: genuine Dukascopy bid/ask for 2007-2024 via
 `scripts/download.py`, or enough post-2024-06 month-ends to test on real bid/ask.
 
+Specs 003 and 005 test H3 independently, by different methods, and both reject it.
+005 defers to 003's standardised regression as the proper test and keeps its own
+raw-pips slope (t +2.19) as descriptive only. Neither supersedes the other.
+
 The binding constraint is no longer method, and no longer purely hypothesis count -
-it is that the one surviving effect is the same size as an unmeasurable cost.
+it is that the one surviving effect is the same size as an unmeasurable cost. Spec
+005 adds a second constraint on top: at a days-to-week horizon on spot, financing
+is larger than any effect this repo has found, so new hypotheses should be
+intraday, or on MJY, or not worth testing.
 
 Context: `HANDOFF.md` first, then
 `Research/Strategy/Hypothesis Review H1 to H3.md` and
