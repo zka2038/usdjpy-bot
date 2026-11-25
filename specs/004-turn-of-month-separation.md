@@ -1,6 +1,6 @@
 # Spec 004: turn-of-month separation
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.15 / +3.11, 74% power); separation unanswerable; tradeability blocked on spread
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.15 / +3.11, 74% power); separation unanswerable; tradeability blocked on spread; gap fill declared 2026-11-25, figures to be re-derived (see *Gap fill*)
 
 **This spec exists to resolve a confound in spec 001, not to find a new effect.**
 Read §5 of `Research/Strategy/Hypothesis Review H1 to H3.md` first.
@@ -91,6 +91,10 @@ Windows, both taken unchanged from spec 001 so the comparison is apples-to-apple
 USDJPY 1-min bid/ask via `usdjpy.dukascopy` from `DATA_DIR` — the same data spec 001
 already uses. **No new data required**, which is why this is the cheaper of the two
 live specs.
+
+As run, the spec used `datasets.load_minute("combined")`, which drops 193 prefix and
+128 postfix B trades for lack of a quote. The *Gap fill* section below declares how
+they are restored from `data/tokyo_hours/`.
 
 ## Kill criteria (decided BEFORE testing)
 
@@ -316,3 +320,111 @@ Latent, not fixed: the profile is keyed on JST hour, but the 17:00 NY rollover
 lands at 06:00 JST under EDT and 07:00 under EST, so hours 6–8 are DST-smeared.
 Specs 001 and 004 trade 08:00–11:00 and are unaffected. Any spec trading JST 6–8
 must key on (JST hour, NY DST flag).
+
+## Gap fill (declared 2026-11-25, before any filled data is seen)
+
+The options, request counts and the choice of fetch are recorded in
+[`specs/README.md`, *Dukascopy fetch*](README.md#dukascopy-fetch-options-and-decision-2026-11-25).
+This section fixes how the data will be used. It is written before the data exists,
+and it may not be revised after any of it has been seen.
+
+### Why
+
+These rules call for every pre-holdout B day, and there are 1,075. The as-run
+results drop days with no quote at an execution minute:
+
+| | Prefix | Postfix |
+|---|---|---|
+| As run | 882 | 947 |
+| Missing in 2007–2014 (gaps in the third-party export) | 176 | 125 |
+| Missing in 2023 (HistData gap, Feb–Jul, 23:00 UTC entry) | 13 | 0 |
+| Missing on 25 December (unfillable) | 4 | 3 |
+
+So the drops come from data gaps, not from the rules. Filling them restores the
+declared sample and lifts the prefix leg from 74% power to about 83%, if the effect
+holds at +2.068 pips. Stage 3 also gives measured bid/ask for 2007–2014. That is the
+era where the spread is least known, and tradeability is blocked on it.
+
+**This is a second look at a test whose result is known, motivated by a power
+shortfall seen in that result.** That is the shape of optional stopping. The
+safeguards:
+- This section is written before any filled data exists.
+- Rules, windows, groups and kill criteria are unchanged.
+- The filled sample is the declared one, so it is not a new trial: the trial count
+  used by `stats.deflated_sharpe` does not change.
+- Both results are reported side by side.
+
+### Data
+
+`data/tokyo_hours/USDJPY/`, UTC hours 22, 23, 0 and 1, fetched by
+`scripts/download_gap_fill.py` in three stages:
+1. Feb–Jul 2023
+2. A spread sample, 2015–2024
+3. Every weekday, 2007–2014
+
+### Step 0: source agreement, before any fill is used
+
+The fill is spliced into series it must match. Compare the Dukascopy tree with the
+as-run bars at the three execution bars (22:59, 00:54, 01:59 UTC), on every day
+both quote:
+
+- **2007–2014, against the third-party export.** Proceed only if the median absolute
+  bid difference is ≤ 0.3 pips **and** the mean absolute difference is smallest at
+  offset 0 among offsets of −60, 0 and +60 minutes. Otherwise stop and report. Use no
+  fill until this section is amended by a dated note that says what was seen.
+- **Feb–Jul 2023, against HistData,** at 00:54 and 01:59, outside the gap. Report the
+  same statistics without a threshold, because HistData is a different venue. If an
+  hour offset appears after the 12 March US DST change, it confirms the open
+  HistData UTC-alignment question in the triage. That would affect every
+  HistData-era figure, not just the fill, and is reported as its own finding.
+
+### Filled analysis (primary for decisions from here on)
+
+- **Bars.** Use the as-run `combined` bars unchanged wherever they produce a trade.
+  For any A, B or C day whose trade the as-run drops, take **both legs** from the
+  Dukascopy tree, so a level offset between sources cannot enter a trade's P&L.
+  Days quoted by neither source are dropped, as before. Stage 2's sample days are
+  not used for fills.
+- **Costs (kill criterion 5).** Add a **measured** column beside *as run*, *era* and
+  *era ×2*:
+  - 2007–2014: each trade pays the Dukascopy spread at its own execution bar.
+  - 2015 to 2024-06: each trade pays the median spread from the stage 2 sample at
+    that execution bar, by calendar year, pooling the B and C sample days. Report
+    the B-versus-C spread difference descriptively.
+  - From 2024-06-19: Eightcap bid/ask, as now.
+
+  Judge kill criterion 5 on the measured column, under both `CostModel()` and
+  `PESSIMISTIC`.
+- **Unchanged:** the windows, the A/B/C partition, `quote_at` tolerance,
+  `allow_holdout=False`, and every kill criterion and its threshold.
+
+### Figures to re-derive
+
+Report each with *as run* and *filled* columns side by side:
+1. Day and trade counts per group and leg, including the 2023 count (now 47 of 60
+   prefix).
+2. The clean test: `mid_pips` A vs C, B vs C and A vs B, with t and the MDE at the
+   t = 2.5 bar.
+3. Period stability, net pips at base costs.
+4. Sharpe: as run, era and live, plus the measured spread.
+5. Power: effect, significance threshold, observed t, MDE@80%, power.
+6. Tradeability, with the measured column.
+7. `stats.deflated_sharpe` at the current trial count, with skew and kurtosis
+   computed from the trade series rather than assumed (0 and 3).
+
+Then update the copies of these numbers held elsewhere:
+- `CLAUDE.md` *Current state* and its trial-budget paragraph (SR 0.1062, n=882,
+  passes to N=8)
+- `HANDOFF.md` §2
+- the spec 004 row of the `specs/README.md` index
+
+Each copy states which sample it quotes.
+
+**If as-run and filled disagree on any kill criterion, the status line says so.**
+The filled result governs, because it is the declared sample. The as-run result
+stays in the record and is not overwritten.
+
+**What the fill cannot do:**
+- It cannot answer the A-vs-B separation. Month-end gains few days, and the MDE
+  stays about twice the effect.
+- It does not touch the holdout.
