@@ -44,7 +44,7 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
   - `datasets.load_minute` returns bar close only, but stops need bid high/low.
   - `events.window_trades` rolls the exit at most one day and has one timezone, so it needs a
     timestamp-based helper for multi-day or ET-anchored holds.
-  - `costs.py` has no overnight financing.
+  - ~~`costs.py` has no overnight financing.~~ Stale: `CostModel.financing_pips` exists (corrected 2026-11-25).
   - `summarize()` periods don't match the 2015–19/2020–24 split.
   - There is no weekly portfolio simulator (needed for 014/016/017).
   - There is no loader for the H.10 daily or the BoJ call-rate files.

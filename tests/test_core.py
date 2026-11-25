@@ -127,3 +127,34 @@ def test_fetch_day_rejects_bad_hours():
     from usdjpy.dukascopy import fetch_day
     with pytest.raises(ValueError):
         fetch_day("USDJPY", dt.date(2024, 1, 2), hours=(23, 24))
+
+
+def _digest(idx):
+    import hashlib
+    return len(idx), hashlib.sha1(",".join(idx.strftime("%Y-%m-%d")).encode()).hexdigest()[:12]
+
+
+def test_gotobi_days_unchanged_for_month_start_ranges():
+    """Output pinned to the pre-fix implementation (2026-11-25) on the ranges the studies use."""
+    assert _digest(gotobi_days(dt.date(2007, 1, 1), dt.date(2024, 12, 31))) == (1291, "32901c57566b")
+    assert _digest(gotobi_days(dt.date(2015, 1, 1), dt.date(2024, 12, 31))) == (717, "c536f8eb7394")
+    assert _digest(gotobi_days(dt.date(2007, 1, 1), dt.date(2026, 6, 5))) == (1393, "48e6884dc2d2")
+
+
+@pytest.mark.parametrize("start", [dt.date(2007, 1, 31), dt.date(2015, 3, 28), dt.date(2023, 12, 30),
+                                   dt.date(2019, 5, 6)])
+def test_gotobi_days_late_month_start(start):
+    """Used to loop until the date overflowed when start was late in a month. Any start
+    must give the month-start result clipped to start."""
+    end = dt.date(start.year + 1, 6, 30)
+    full = gotobi_days(dt.date(start.year, start.month, 1), end)
+    assert list(gotobi_days(start, end)) == list(full[full >= pd.Timestamp(start)])
+
+
+def test_turn_of_month_groups_partition():
+    from usdjpy.calendars import jp_business_days, turn_of_month_groups
+    g = turn_of_month_groups(dt.date(2007, 1, 1), dt.date(2024, 12, 31))
+    a, b, c = g["A_month_end"], g["B_gotobi_proper"], g["C_control"]
+    assert len(a.intersection(b)) == len(a.intersection(c)) == len(b.intersection(c)) == 0
+    assert len(a) + len(b) + len(c) == len(jp_business_days(dt.date(2007, 1, 1), dt.date(2024, 12, 31)))
+    assert (len(a), len(b)) == (216, 1075)

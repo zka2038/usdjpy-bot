@@ -233,12 +233,15 @@ list them too.
 Any amendment to the spec text must be dated and must state that no filled data
 had been viewed when it was made.
 
-### Task 4: hygiene
+### Task 4: hygiene — **DONE 2026-11-25**
 
-> **Status 2026-11-25:** two items done with the `CLAUDE.md` / `HANDOFF.md` update:
-> `HANDOFF.md` §2's download paragraphs are replaced by a pointer, and the spec 001
-> contradiction is settled (do not restate; HANDOFF §6 withdrawn). Still open: the
-> `calendars.gotobi_days` fix and the stale triage items.
+> **Status:** all items done. `calendars.gotobi_days` pads from the first of
+> `start`'s month and raises instead of overflowing; its month-start output is pinned
+> by checksum in `tests/test_core.py`, and the spec 004 study re-runs byte-identical.
+> The A/B/C partition is now `calendars.turn_of_month_groups`, shared by the study and
+> the gap-fill analysis. The stale financing item is struck in the triage; the
+> HistData item was restated under Task 1. `HANDOFF.md` §2's download paragraphs are
+> replaced by a pointer, and the spec 001 contradiction is settled (do not restate).
 
 - **Fix the `calendars.gotobi_days` bug.**
   - It loops until the date overflows when `start` is late in a month, e.g.

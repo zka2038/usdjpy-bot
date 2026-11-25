@@ -28,23 +28,42 @@ def jp_business_days(start: dt.date, end: dt.date) -> pd.DatetimeIndex:
     return days[~days.normalize().isin(pd.DatetimeIndex(sorted(hols)))]
 
 
-def _roll_back(d: dt.date, bdays: set[dt.date]) -> dt.date:
+def _roll_back(d: dt.date, bdays: set[dt.date], floor: dt.date) -> dt.date:
     while d not in bdays:
         d -= dt.timedelta(days=1)
+        if d < floor:
+            raise ValueError(f"no business day at or before the nominal date within the padded calendar (floor {floor})")
     return d
 
 
 def gotobi_days(start: dt.date, end: dt.date) -> pd.DatetimeIndex:
     """Gotobi dates (JST calendar dates) between start and end, inclusive."""
-    pad_start = start - dt.timedelta(days=15)  # so roll-backs near `start` resolve
+    # The month loop below starts at day 5 of start's month, so the business-day set
+    # must reach back past the FIRST of that month, not just past `start`. Padding
+    # from `start` (as before 2026-11-25) looped until the date overflowed whenever
+    # `start` was late in a month, e.g. gotobi_days(date(2007, 1, 31), ...). The 15
+    # days cover a roll-back across New Year (Jan 5 on a Sunday rolls to Dec 30).
+    pad_start = dt.date(start.year, start.month, 1) - dt.timedelta(days=15)
     bdays = set(d.date() for d in jp_business_days(pad_start, end))
     out = set()
     for month in pd.date_range(pd.Timestamp(start).replace(day=1), end, freq="MS"):
         for day in GOTOBI_DAYS:
-            out.add(_roll_back(dt.date(month.year, month.month, day), bdays))
+            out.add(_roll_back(dt.date(month.year, month.month, day), bdays, pad_start))
         month_end = (month + pd.offsets.MonthEnd(0)).date()
-        out.add(_roll_back(month_end, bdays))
+        out.add(_roll_back(month_end, bdays, pad_start))
     return pd.DatetimeIndex(sorted(d for d in out if start <= d <= end))
+
+
+def turn_of_month_groups(start: dt.date, end: dt.date) -> dict[str, pd.DatetimeIndex]:
+    """Spec 004's mutually exclusive partition of Japanese business days:
+    A month-end (last JP business day of the month), B Gotobi-proper (5/10/15/20/25
+    rolled back, excluding month-end), C control (everything else). One definition,
+    used by scripts/turn_of_month_study.py and the gap-fill analysis."""
+    jp = jp_business_days(start, end)
+    month_end = pd.DatetimeIndex(pd.Series(jp).groupby([jp.year, jp.month]).max().values)
+    b = gotobi_days(start, end).difference(month_end)
+    c = jp.difference(month_end).difference(b)
+    return {"A_month_end": month_end, "B_gotobi_proper": b, "C_control": c}
 
 
 def last_business_days(start: dt.date, end: dt.date, country: str = "UK") -> pd.DatetimeIndex:

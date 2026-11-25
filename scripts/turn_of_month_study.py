@@ -24,7 +24,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import pandas as pd  # noqa: E402
 
-from usdjpy.calendars import gotobi_days, jp_business_days  # noqa: E402
+from usdjpy.calendars import gotobi_days, turn_of_month_groups  # noqa: E402
 from usdjpy.config import DATA_DIR, HOLDOUT_START, RESULTS_DIR, SYMBOL  # noqa: E402
 from usdjpy.costs import CostModel, PESSIMISTIC  # noqa: E402
 from usdjpy.datasets import load_minute  # noqa: E402
@@ -52,13 +52,9 @@ bars = load_minute_bars(SYMBOL, DATA_DIR) if args.source == "dukascopy-ticks" el
 print(f"Source: {args.source}")
 start, end = bars.index[0].date(), bars.index[-1].date()
 
-jp = jp_business_days(start, end)
-month_end = pd.DatetimeIndex(pd.Series(jp).groupby([jp.year, jp.month]).max().values)
+GROUPS = turn_of_month_groups(start, end)   # one definition, shared with the gap-fill analysis
+month_end, gotobi_proper = GROUPS["A_month_end"], GROUPS["B_gotobi_proper"]
 gotobi_all = gotobi_days(start, end)
-gotobi_proper = gotobi_all.difference(month_end)
-control = jp.difference(month_end).difference(gotobi_proper)
-
-GROUPS = {"A_month_end": month_end, "B_gotobi_proper": gotobi_proper, "C_control": control}
 
 print(f"Data {start} -> {end}  ({len(bars):,} minute bars)")
 hold = pd.Timestamp(HOLDOUT_START)

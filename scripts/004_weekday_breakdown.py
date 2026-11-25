@@ -57,7 +57,7 @@ def b_origin(dates: pd.DatetimeIndex) -> pd.Series:
     'rolled_holiday' (a weekday holiday). Mirrors calendars.gotobi_days' roll-back."""
     start, end = dates.min().date().replace(day=1), dates.max().date()
     # Pad the business-day set back past the first nominal date, or the roll-back
-    # walks off its start (the same bug as calendars.gotobi_days, handoff task 4).
+    # walks off its start (calendars.gotobi_days had the same bug until 2026-11-25).
     bdays = set(d.date() for d in jp_business_days(start - dt.timedelta(days=15), end))
     origin = {}
     for m in pd.date_range(pd.Timestamp(start).replace(day=1), end, freq="MS"):
