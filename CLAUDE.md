@@ -4,6 +4,9 @@ Research → backtest → live pipeline for USDJPY, executed through IBKR. Layer
 pandas event studies and predictive regressions in this repo; most ideas should die
 here, cheaply. Layer 2 is NautilusTrader with bid/ask fills.
 
+**Start with `HANDOFF.md`** — state, the next action, and the numbers that were
+wrong at some point so they are not inherited.
+
 **Read the relevant spec in `specs/` before touching any study.** Each has its kill
 criteria declared before testing. Do not revise kill criteria after seeing results.
 
@@ -174,5 +177,6 @@ What would settle it: genuine Dukascopy bid/ask for 2007-2024 via
 The binding constraint is no longer method, and no longer purely hypothesis count -
 it is that the one surviving effect is the same size as an unmeasurable cost.
 
-Context: `Research/Strategy/Hypothesis Review H1 to H3.md` and
+Context: `HANDOFF.md` first, then
+`Research/Strategy/Hypothesis Review H1 to H3.md` and
 `Research/Strategy/H1 Intervention Reaction.md`.
