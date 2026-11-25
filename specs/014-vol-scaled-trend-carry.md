@@ -1,6 +1,6 @@
 # Spec 014: Volatility-scaled trend + carry with crash/intervention filters
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Two slow premia. **Trend:** information diffuses gradually and hedgers pay speculators to take the

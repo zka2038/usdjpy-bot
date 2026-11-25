@@ -1,6 +1,6 @@
 # Spec 018: Expected-null calendar battery (FOMC, BoJ day, holidays, Golden Week, fiscal year-end, intraday momentum)
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Each item below is popular folklore or a dollar-wide result that the evidence says does **not** hold

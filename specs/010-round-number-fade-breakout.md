@@ -1,6 +1,6 @@
 # Spec 010: Round-number fade and breakout vs placebo levels
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Dealers hold clients' conditional orders. Take-profits cluster *at* round numbers and stop-losses

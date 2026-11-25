@@ -1,6 +1,6 @@
 # Spec 015: Month-end London-fix equity-hedge rebalancing
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Funds that hedge the currency risk of foreign equity holdings reset their hedges at the month-end

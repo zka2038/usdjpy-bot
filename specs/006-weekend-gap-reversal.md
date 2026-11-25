@@ -1,6 +1,6 @@
 # Spec 006: Weekend-gap reversal
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Weekend news piles up while FX is shut. At the Sunday 17:00 ET reopen (Wellington/Sydney, the thinnest

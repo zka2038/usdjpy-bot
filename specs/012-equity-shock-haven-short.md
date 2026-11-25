@@ -1,6 +1,6 @@
 # Spec 012: Equity-shock haven short
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 After a sharp US equity sell-off with a jump in the VIX, risk limits (VaR, margin) force leveraged

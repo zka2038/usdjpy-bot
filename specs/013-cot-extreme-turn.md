@@ -1,6 +1,6 @@
 # Spec 013: CFTC leveraged-fund extreme + turn
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Leveraged funds (hedge funds, CTAs) build crowded yen shorts through carry and trend trades. Once a

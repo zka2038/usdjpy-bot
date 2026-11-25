@@ -1,6 +1,6 @@
 # Spec 007: No-news 1-minute shock fade
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 A very large 1-minute move with no scheduled news is usually a liquidity event, not information: a

@@ -1,6 +1,6 @@
 # Spec 008: US release (NFP/CPI) post-jump continuation
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 NFP and CPI surprises force a repricing of Fed expectations. Fast money sets the first jump within

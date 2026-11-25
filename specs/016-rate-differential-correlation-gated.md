@@ -1,6 +1,6 @@
 # Spec 016: Rate-differential rule gated by rolling correlation
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 When USDJPY is in a "rates regime", real-money and leveraged investors reallocate toward the

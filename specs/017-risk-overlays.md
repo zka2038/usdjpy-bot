@@ -1,6 +1,6 @@
 # Spec 017: Risk overlays for trend/carry (VIX, vol targeting, holidays, post-intervention, blackouts)
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Long USDJPY (spec 014 in the current regime) is short crash risk. Its losses come when the parties

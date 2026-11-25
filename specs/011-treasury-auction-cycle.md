@@ -1,6 +1,6 @@
 # Spec 011: US Treasury auction cycle
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 Primary dealers have to bid at every Treasury auction, and investors who plan to buy want a

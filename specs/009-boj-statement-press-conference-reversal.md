@@ -1,6 +1,6 @@
 # Spec 009: BoJ statement → press-conference reversal
 
-**Author:** Claude (research 2026-11-24) · **Date:** 2026-11-24 · **Status:** idea
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** idea
 
 ## Hypothesis
 The BoJ statement lands at no fixed time around midday JST, and fast traders and algos trade the
