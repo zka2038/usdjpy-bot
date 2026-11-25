@@ -94,7 +94,7 @@ def cftc(first_year: int = 2010) -> None:
 
 
 def histdata() -> None:
-    """HistData.com 1-min (EST, no DST). Fills 2000-2014 and 2025-05 onward."""
+    """HistData.com 1-min. Timestamps are NY local WITH DST (see docs/DATA.md) - localize to America/New_York."""
     print("HistData")
     try:
         from histdata import download_hist_data as dl

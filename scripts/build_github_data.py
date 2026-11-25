@@ -74,7 +74,8 @@ def minute_bars(tmp: pathlib.Path) -> None:
     d = d[~d.index.duplicated()]
     d.index.name = "ts_utc"
     d.to_parquet(out / "dukascopy_bid_2007_2023.parquet", compression="zstd")
-    # HistData MetaTrader M1: EST without DST (fixed UTC-5)
+    # HistData MetaTrader M1: documented as fixed EST, but verified (weekly-open time, lag-0 vs Dukascopy
+    # and Eightcap) to be New York local time WITH DST -> localize to America/New_York.
     parts = []
     names = [str(y) for y in range(2015, 2025)] + [f"2025{m:02d}" for m in range(1, 5)]
     for n in names:
@@ -82,8 +83,10 @@ def minute_bars(tmp: pathlib.Path) -> None:
         with zipfile.ZipFile(z) as zf:
             csv = [x for x in zf.namelist() if x.endswith(".csv")][0]
             df = pd.read_csv(zf.open(csv), header=None, names=["d", "t"] + cols + ["volume"])
-            ts = pd.to_datetime(df["d"] + " " + df["t"], format="%Y.%m.%d %H:%M") + pd.Timedelta(hours=5)
-            parts.append(df.set_axis(ts.dt.tz_localize("UTC"))[cols].astype("float32"))
+            ts = pd.to_datetime(df["d"] + " " + df["t"], format="%Y.%m.%d %H:%M").dt.tz_localize(
+                "America/New_York", ambiguous="NaT", nonexistent="NaT").dt.tz_convert("UTC")
+            df = df.set_axis(ts)[cols].astype("float32")
+            parts.append(df[df.index.notna()])
     h = pd.concat(parts).sort_index()
     h = h[~h.index.duplicated()]
     h.index.name = "ts_utc"
