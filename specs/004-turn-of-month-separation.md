@@ -1,6 +1,6 @@
 # Spec 004: turn-of-month separation
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** testing
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** passed (separation unresolved; effect real, tradeability undecidable)
 
 **This spec exists to resolve a confound in spec 001, not to find a new effect.**
 Read §5 of `Research/Strategy/Hypothesis Review H1 to H3.md` first.
@@ -170,5 +170,109 @@ That is a useful result. It retires a family rather than a parameter.
 
 ## Results
 
-<to be filled in: link to `results/`, the A/B/C summary tables, the three
-comparisons, MDE alongside each null, and the decision>
+Run 2026-11-25 on `datasets.load_minute("combined")`, 2007-01-31 to 2024-12-30
+(pre-holdout), after the execution-hour fix to `_with_synthetic_ask`. Day counts:
+A 234, B 1159, C 3357, A/B overlap 0. Month-end is 234 of spec 001's 1393
+treatment days = **17%**.
+
+### The clean test — mid_pips, no cost assumption
+
+| Test | prefix_long | postfix_short | MDE | verdict |
+|---|---|---|---|---|
+| A vs C | −0.23 (t −0.13) | +1.87 (t +1.09) | 4.8–4.9p | null, **uninformative** |
+| **B vs C** | **+2.275 (t +3.04)** | **+1.513 (t +2.62)** | 2.09 / 1.61p | **DIFFERENT** |
+| A vs B | −2.50 (t −1.37) | +0.36 (t +0.20) | 5.1 / 4.9p | null, **uninformative** |
+
+**The hypothesis is refuted, and in the opposite direction.** This spec predicted
+month-end would dominate and Gotobi-proper would be indistinguishable from
+control. The data says Gotobi-proper differs from control in both rules, same
+sign, with MDE **below** the published 2.86-pip effect — an informative positive.
+Month-end shows nothing, but at MDE 1.7× the effect we cannot *see* it, which is
+not the same as it contributing nothing.
+
+**So spec 001's stated mechanism survives.** The effect lives in importer
+settlement days, not month-end rebalancing. Its conclusion was not a month-end
+artefact.
+
+**The separation test itself fails on power**, exactly as this spec's corrected
+power section predicted (MDE 1.8× the effect). Kill criterion 2 is therefore not
+decisive either way: we did not reject A=B, and we could not have.
+
+### Period stability (net pips, base costs)
+
+| rule | 2005–2014 | 2015–2021 | 2022+ |
+|---|---|---|---|
+| B prefix | +2.53 (t +2.10, n=302) | +2.21 (t +2.84, n=414) | +0.87 (t +0.46, n=166) |
+| B postfix | +1.84 (t +2.36, n=353) | +0.72 (t +1.07, n=415) | +2.96 (t +1.98, n=179) |
+
+6/6 cells positive, 4/6 at |t| ≥ 1.96. Kill criterion 3 (pre-2008 only) does not
+fire: the effect is present across all three periods, weakest most recently in
+the prefix rule and strongest most recently in the postfix.
+
+### Sharpe, and the two bars
+
+| | trades/yr | sd/trade | as run | era | live (73% haircut) |
+|---|---|---|---|---|---|
+| prefix_long | 49 | 19.5p | **0.74** | 0.44 | 0.20 |
+| postfix_short | 53 | 15.4p | **0.73** | 0.37 | 0.10 |
+
+18-year detection bar (t=2) is 0.47; multiple-testing bar (t=3) is 0.71. **The
+as-run Sharpe of 0.74 clears t=3** — the first result in this project to do so.
+Under era-scaled spreads it falls to 0.44, below even detection.
+
+Annualised vol is only **0.86%**, because exposure is ~2 hours per trade. That
+makes the strategy capital-efficient and leverable; at 10× it is 6.4%/yr at 8.6%
+vol. Sharpe is leverage-invariant, so the honest live expectation remains 0.20,
+i.e. roughly 1.7%/yr at that leverage.
+
+### Tradeability: undecidable, and for a stateable reason
+
+Kill criterion 5 as written quoted a 1.84-pip bar, computed with the pre-fix
+0.600 spread. With the corrected hour-8 spread the `PESSIMISTIC` all-in is
+**1.236 + 0.360 = 1.60 pips**.
+
+| | as run | era | era ×2 |
+|---|---|---|---|
+| prefix_long | +2.068 **passes** | +1.236 fails | +0.001 fails |
+| postfix_short | +1.561 fails | +0.784 fails | −0.318 fails |
+
+The verdict flips between columns, which is the case `004_spread_sensitivity.py`
+was written to detect. **The effect (1.5–2.1 pips) is the same order as the
+spread uncertainty (0.36 measured, 0.9–1.8 plausible for 2007–2024).** So "is
+this tradeable" is literally the question "what was the retail spread in
+2007–2024", and bid-only data cannot answer it. The admissible bid/ask slice is
+2024-06-19 onward, which is 6½ pre-holdout months.
+
+Ignore the `sig` flags on C_control under era costs (t up to −6.44). Adding
+spread uniformly shifts every group down, and at n=2606 a small shift is
+significant. That is arithmetic, not a finding, and is why the `mid_pips`
+comparison is the test.
+
+### Decision
+
+- **Separation: unresolved and unresolvable at this power.** Do not claim month-end
+  contributes nothing; claim only that it is invisible at n=187–193.
+- **Spec 001's mechanism: upheld.** Restate its conclusion as Gotobi-proper, not
+  Gotobi-including-month-end.
+- **Effect: real and period-stable** on the cost-free comparison.
+- **Tradeability: blocked on spread provenance, not on statistics.** Does not
+  advance to Layer 2 until either (a) `scripts/download.py` supplies genuine
+  Dukascopy bid/ask for 2007–2024, or (b) forward bid/ask accumulates enough
+  month-ends post-2024-06 to test directly.
+
+### Bug found and fixed during this run
+
+`_with_synthetic_ask` keyed the synthetic spread on the source bar's JST hour.
+`events.quote_at` fills on the bar at `ts − 1min`, so an 08:00 JST entry filled
+on the 07:59 bar and paid hour 7 (0.600 pips, still decaying from the 06:00
+rollover spike) instead of hour 8 (0.360). Costs were **overstated** by 0.24
+pips per prefix trade — conservative, but it compounded through the era
+multipliers, moving the prefix `era` column from +0.457 to +1.236. Fixed by
+keying on the execution hour. Postfix was unaffected (09:55 fills on 09:54, both
+hour 9) and its 0.326 median is unchanged, which is the control confirming the
+fix was narrow.
+
+Latent, not fixed: the profile is keyed on JST hour, but the 17:00 NY rollover
+lands at 06:00 JST under EDT and 07:00 under EST, so hours 6–8 are DST-smeared.
+Specs 001 and 004 trade 08:00–11:00 and are unaffected. Any spec trading JST 6–8
+must key on (JST hour, NY DST flag).

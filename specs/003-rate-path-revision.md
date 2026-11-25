@@ -1,6 +1,6 @@
 # Spec 003: rate-path revision
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** testing
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** rejected (well-powered null)
 
 Layer-1 test is a **predictive regression, not a trade simulation.** Trade rules are
 stated below but are not to be built until the regression passes. See
@@ -129,7 +129,52 @@ co-moves with FX volatility, and ~1× if it does not. Record it: a ratio near 1
 means the vol-standardisation was unnecessary, and a large ratio on the
 *standardised* series means the standardisation failed.
 
-## Results
+## Results — rejected
 
-<to be filled in: link to `results/`, the rho/t table across h, the HC/naive ratio,
-the MDE, and the decision>
+Run 2026-11-25, `datasets.load_minute("combined")`, pre-holdout, n = 4,211
+business days at h=1 (16.7 years).
+
+| h | n | std t_hc | SE ratio | raw rho | SR est | MDE SR | verdict |
+|---|---|---|---|---|---|---|---|
+| 1 | 4211 | +1.80 | 1.09 | +0.0253 | 0.40 | 0.89 | null |
+| 3 | 1403 | +1.17 | 1.11 | +0.0437 | 0.40 | 0.89 | null |
+| 5 | 842 | +0.81 | 1.09 | +0.0318 | 0.23 | 0.89 | null |
+| 10 | 421 | +0.95 | 1.13 | +0.0431 | 0.22 | 0.89 | null |
+
+Kill criterion 1 fires at every horizon (max |t_hc| 1.80 vs the 2.81 Bonferroni
+bar). Criterion 4 fires independently: every SR point estimate is below the
+tradeability bar even ignoring significance.
+
+**It fails informatively.** The sign is positive at all four horizons, in the
+hypothesised direction, so criterion 2 does not fire. This is a correctly-signed
+effect that is too small — consistent with the literature placing the predictive
+content at multi-quarter rather than daily horizons.
+
+**The null is well-powered.** Simulation gives 86% power at ρ=0.05 for the
+vol-standardised specification, so this is not H1's uninformative null.
+
+**The SE ratio came back at 1.00–1.13, not the predicted 5–7.** That is *not*
+evidence the heteroskedasticity problem is absent: `rate_path_signal()` already
+divides the spread change by `fx_vol` before z-scoring, so the correction was
+applied one step upstream of the regression. Simulated, an unscaled signal gives
+SE ratio 5.98 and 13% power; the vol-scaled signal gives 0.49 and 86%. The
+machinery earned its place — the regression-level diagnostic was quiet because
+the fix had already worked.
+
+**Known defect in the output.** Because `rate_path_signal()` bakes in the vol
+scaling, the "raw" column is not a fixed-notional specification, so
+`sharpe_from_raw` is not the fixed-notional Sharpe it is documented as. The
+verdict is unaffected (all null) but the sizing column is mislabelled. Fix:
+compute ρ once against the unscaled spread change.
+
+**Blind spot to record.** MDE Sharpe is 0.89 while the tradeability bar is
+0.73 (3/√16.7 for the actual span, not the 0.67 the script used). Effects
+implying a Sharpe between 0.73 and 0.89 were **tradeable but undetectable** here.
+A null does not rule them out. The gap exists because testing four horizons
+pushes the Bonferroni detection bar above the economic one.
+
+**Sample caveat.** n = 4,211 implies `combined`, which includes the 2007–2014
+Dukascopy slice that is 40–65% complete across 2011–18 with 2020 absent. Those
+observations are non-randomly selected — whichever days a third party's export
+happened to capture. A re-run on `histdata` alone is the clean check and costs
+about half the sample.

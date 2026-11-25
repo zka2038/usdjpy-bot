@@ -116,6 +116,23 @@ All of these manufacture *positive* results from no signal.
    labelling only, never a contemporaneous input. Its monthly periods run ~29th to
    ~28th, not calendar months.
 
+5. **Bid-only substitution overstates BOTH directions by exactly one spread** -
+   long entry too low, short exit too low, same sign and same size. A known
+   constant, correctable by adding a spread estimate, not a direction-dependent
+   distortion. HistData timestamps are **NY local WITH DST**, not the fixed EST
+   its own FAQ claims (verified in `docs/DATA.md`); trust the catalogue.
+6. **Synthetic spread must be keyed on the EXECUTION hour, not the bar's hour.**
+   `events.quote_at(ts)` fills on the bar at `ts - 1min`, so the bar labelled T
+   is the fill for a trade at T+1min. Keying on the bar's own hour overcharged
+   spec 004's 08:00 JST entry by 0.24 pips - it paid hour 7 (0.600 pips, still
+   decaying from the 06:00 rollover spike) instead of hour 8 (0.360). Fixed in
+   `datasets._with_synthetic_ask`; `exec_lag` must track `quote_at`'s offset.
+7. **The spread profile is DST-smeared at JST hours 6-8.** The 17:00 NY rollover
+   lands at 06:00 JST under EDT and 07:00 under EST. Japan has no DST, so Tokyo
+   patterns are crisp and only the rollover moves. Specs 001/004 trade
+   08:00-11:00 and are unaffected; anything trading JST 6-8 must key the profile
+   on (JST hour, NY DST flag).
+
 ---
 
 ## Gotchas in this repo
@@ -139,14 +156,23 @@ All of these manufacture *positive* results from no signal.
 
 | Spec | Status | Note |
 |---|---|---|
-| 001 gotobi / Tokyo fix | tested | confounded with month-end; re-read after 004 |
-| 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24–0.43 |
-| 003 rate-path revision | testing | needs `data/dgs2.csv`, `data/jgbcme_all.csv` |
-| 004 turn-of-month separation | testing | no new data needed |
+| 001 gotobi / Tokyo fix | **upheld** | mechanism confirmed by 004; restate as Gotobi-proper, excluding month-end |
+| 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
+| 003 rate-path revision | **rejected** | well-powered null, max abs(t_hc) 1.80 vs 2.81 bar; right sign, too small |
+| 004 turn-of-month separation | **passed; tradeability undecidable** | B-vs-C different (t +3.04 / +2.62); separation itself underpowered |
 
-Four signal families already died: trend/technical, calendar-as-signal, carry, risk
-appetite. Eight families examined, six dead, two testable, zero tested. The binding
-constraint is now the number of hypotheses worth testing, not the method.
+Eight signal families examined, six dead. Spec 004 is the only surviving effect:
+Gotobi-proper differs from control on cost-free mid prices, 6/6 sub-period cells
+positive, as-run Sharpe 0.74 - the first result here to clear the t=3 bar of 0.71.
+But it is 1.5-2.1 pips against a spread uncertainty of 0.36 measured versus 0.9-1.8
+plausible for 2007-2024, so **tradeability is blocked on spread provenance, not on
+statistics.** Under era-scaled spreads the Sharpe falls to 0.44, below detection.
+
+What would settle it: genuine Dukascopy bid/ask for 2007-2024 via
+`scripts/download.py`, or enough post-2024-06 month-ends to test on real bid/ask.
+
+The binding constraint is no longer method, and no longer purely hypothesis count -
+it is that the one surviving effect is the same size as an unmeasurable cost.
 
 Context: `Research/Strategy/Hypothesis Review H1 to H3.md` and
 `Research/Strategy/H1 Intervention Reaction.md`.
