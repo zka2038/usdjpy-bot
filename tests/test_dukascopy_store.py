@@ -41,8 +41,8 @@ def candle_payload(day_minutes=1440, live=range(0, 1440, 2), base=150_000, side_
 
 
 class Resp:
-    def __init__(self, code, content=b""):
-        self.status_code, self.content = code, content
+    def __init__(self, code, content=b"", headers=None):
+        self.status_code, self.content, self.headers = code, content, headers or {}
 
 
 class FakeSession:
@@ -165,7 +165,7 @@ def test_throttling_backs_off_then_succeeds(tmp_path):
     f = make_fetcher(s)
     ds.download("ticks", "USDJPY", dt.date(2024, 1, 10), dt.date(2024, 1, 10), tmp_path,
                 fetcher=f, today=TODAY, log=lambda m: None)
-    assert f.rate.throttle_events == 2 and f.rate.rate < 1e6
+    assert f.rate.throttle_events == 1 and f.rate.rate < 1e6   # two 429s inside one cooldown = one escalation
 
 
 def test_weekend_leak_fails_month(tmp_path):
@@ -265,7 +265,7 @@ def test_failure_reasons_recorded(tmp_path):
     f = make_fetcher(s)
     man = ds.download("ticks", "USDJPY", dt.date(2024, 1, 10), dt.date(2024, 1, 10), tmp_path,
                       fetcher=f, today=TODAY, log=lambda m: None)[0]
-    assert man["failed_attempts"] == {"HTTP 429": 2}
+    assert man["failed_attempts"] == {"HTTP 429": 2} and man["status"] != "failed"
 
 
 def test_dropped_connections_while_online_back_off_instead_of_pausing(tmp_path):
@@ -289,7 +289,7 @@ def test_dropped_connections_while_online_back_off_instead_of_pausing(tmp_path):
                       fetcher=f, today=TODAY, log=logs.append, workers=1)[0]
     assert man["status"] == "partial" and man["errors"] == [] and gate.pauses == 0   # one day -> partial month
     assert f.rate.throttle_events == 1 and f.rate.rate < 8.0   # 3 drops inside one cooldown = one escalation
-    assert any("dropping connections" in m for m in logs)
+    assert any("limiting us" in m and "reset by peer" in m for m in logs)
     assert man["failed_attempts"] == {"ConnectionError": 3}
 
 
@@ -346,3 +346,22 @@ def test_probe_reports_each_file_without_retrying(monkeypatch):
     rows = ds.probe(session=S())
     assert rows[0]["result"] == "up" and len(rows) == 5
     assert rows[1]["result"].startswith("ConnectionError") and rows[3]["result"].startswith("HTTP 200")
+
+
+def test_429_waits_out_rate_limit_without_spending_retries(tmp_path):
+    """A long 429 spell must not fail the month: each 429 is a wait, not a retry."""
+    url = ds.tick_url("USDJPY", dt.datetime(2024, 1, 10, 3))
+    s, logs = FakeSession(flaky={url: 12}), []          # 12 x 429 > retries=3
+    f = ds.Fetcher(ds.AdaptiveRate(4.0), retries=3, session_factory=lambda: s, log=logs.append)
+    man = ds.download("ticks", "USDJPY", dt.date(2024, 1, 10), dt.date(2024, 1, 10), tmp_path,
+                      fetcher=f, today=TODAY, log=logs.append, workers=1)[0]
+    assert man["errors"] == [] and man["failed_attempts"] == {"HTTP 429": 12}
+    assert any("limiting us" in m and "429" in m for m in logs)
+
+
+def test_retry_after_header_respected():
+    logs = []
+    f = ds.Fetcher(ds.AdaptiveRate(4.0), log=logs.append, pushback_cooldown=30)
+    r = Resp(429, headers={"Retry-After": "900"})
+    f._pushback(detail="HTTP 429" + ds._retry_after_note(r), min_wait=ds._retry_after_seconds(r))
+    assert "900s" in logs[0] and "Retry-After 900s" in logs[0]

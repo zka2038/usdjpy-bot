@@ -201,7 +201,7 @@ def decode_candles(payload: bytes, day: dt.date) -> tuple[pd.DataFrame, str]:
 class AdaptiveRate:
     """Thread-safe token pacing that halves on throttling and creeps back up on success."""
 
-    def __init__(self, rate: float, floor: float = 0.5, ceiling: float | None = None,
+    def __init__(self, rate: float, floor: float = 0.25, ceiling: float | None = None,
                  recover_every: int = 50, halve_window: float = 5.0):
         self.rate, self.floor, self.ceiling = rate, floor, ceiling or rate
         self.recover_every, self.halve_window = recover_every, halve_window
@@ -247,6 +247,26 @@ def _tcp(host: str, port: int, timeout: float) -> bool:
             return True
     except OSError:
         return False
+
+
+def _retry_after_seconds(r) -> float | None:
+    """Seconds from a Retry-After header (delta-seconds or HTTP date), if the server sent one."""
+    v = (getattr(r, "headers", None) or {}).get("Retry-After")
+    if not v:
+        return None
+    try:
+        return max(0.0, float(v))
+    except ValueError:
+        try:
+            from email.utils import parsedate_to_datetime
+            return max(0.0, (parsedate_to_datetime(v) - dt.datetime.now(dt.timezone.utc)).total_seconds())
+        except (TypeError, ValueError):
+            return None
+
+
+def _retry_after_note(r) -> str:
+    sec = _retry_after_seconds(r)
+    return "" if sec is None else f", Retry-After {sec:.0f}s"
 
 
 def internet_up(timeout: float = 5.0) -> bool:
@@ -299,6 +319,7 @@ class Fetcher:
     cache_hits: int = 0
     failures: Counter = dataclasses.field(default_factory=Counter)
     max_offline_rounds: int = 1000
+    max_rate_limited_rounds: int = 40   # ~40 escalating waits (up to 10 min each) before giving up on a file
     # Dukascopy drops/refuses connections when we go too fast. Escalating cooldown, reset on success.
     pushback_cooldown: float = 30.0
     pushback_max: float = 600.0
@@ -325,7 +346,7 @@ class Fetcher:
         if cp is not None and cp.exists():
             self.cache_hits += 1
             return decode(cp.read_bytes())
-        last, attempt, offline_rounds = None, 0, 0
+        last, attempt, offline_rounds, limited_rounds = None, 0, 0, 0
         while attempt < self.retries:
             self.rate.wait()
             try:
@@ -366,6 +387,12 @@ class Fetcher:
                 return out
             last = f"HTTP {r.status_code}"
             self.failures[last] += 1
+            if r.status_code == 429 and limited_rounds < self.max_rate_limited_rounds:
+                # Too Many Requests is about us, not this file: wait it out, don't spend retries.
+                limited_rounds += 1
+                self._pushback(detail=f"HTTP 429 Too Many Requests{_retry_after_note(r)}",
+                               min_wait=_retry_after_seconds(r))
+                continue
             self._backoff(attempt, throttle=r.status_code in (403, 429) or r.status_code >= 500)
             attempt += 1
         raise FetchError(f"{url}: gave up after {self.retries} attempts ({last})")
@@ -376,7 +403,7 @@ class Fetcher:
         if self._ok_since_pushback >= 50:
             self._pushback_level = 0
 
-    def _pushback(self, detail: str = "") -> None:
+    def _pushback(self, detail: str = "", min_wait: float | None = None) -> None:
         """Connection refused/reset while the internet is fine: Dukascopy is limiting us.
 
         Escalates at most once per cooldown: parallel workers usually fail together, and
@@ -386,10 +413,12 @@ class Fetcher:
             now = time.monotonic()
             if now >= self._pushback_until:
                 wait = min(self.pushback_max, self.pushback_cooldown * 2 ** self._pushback_level)
+                if min_wait:
+                    wait = max(wait, min(min_wait, 3600.0))
                 self._pushback_level += 1
                 self._pushback_until = now + wait
                 self.rate.throttled(cooldown=wait)
-                self.log(f"  Dukascopy is dropping connections (internet OK) - backing off {wait:.0f}s, "
+                self.log(f"  Dukascopy is limiting us (internet OK) - backing off {wait:.0f}s, "
                          f"rate now {self.rate.rate:.1f}/s\n    cause: {detail[:200]}")
             remaining = self._pushback_until - now
         _sleep(max(0.0, remaining) * (0.9 + 0.2 * random.random()))
@@ -671,9 +700,15 @@ def probe(sym: str = "USDJPY", session: requests.Session | None = None) -> list[
         try:
             r = s.get(url, timeout=(10, 30))
             res = f"HTTP {r.status_code}, {len(r.content):,} bytes"
+            if r.status_code != 200:
+                hdr = {k: v for k, v in (getattr(r, "headers", None) or {}).items()
+                       if k.lower() in ("retry-after", "x-ratelimit-limit", "x-ratelimit-remaining",
+                                        "x-ratelimit-reset", "server", "cf-ray")}
+                body = r.content[:120].decode("utf-8", "replace").replace("\n", " ")
+                res += f"  headers {hdr}  body: {body!r}"
         except requests.RequestException as e:
             res = f"{type(e).__name__} <- {root_cause(e)}"
-        rows.append({"file": name, "result": res[:160], "seconds": round(time.monotonic() - t0, 2)})
+        rows.append({"file": name, "result": res[:400], "seconds": round(time.monotonic() - t0, 2)})
         time.sleep(2)
     return rows
 
