@@ -1,6 +1,6 @@
 # Spec 004: turn-of-month separation
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** undecidable (declared test unanswerable; effect below its own MDE; numbers pending re-run)
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.15 / +3.11, 74% power); separation unanswerable; tradeability blocked on spread
 
 **This spec exists to resolve a confound in spec 001, not to find a new effect.**
 Read §5 of `Research/Strategy/Hypothesis Review H1 to H3.md` first.
@@ -238,20 +238,27 @@ trade, with postfix off by 0.012, which is the trap-6 signature (0.600 − 0.360
 the entry leg only). The 0.74 is right for correct code; it was not reproducible.
 Re-run and confirm before quoting it again.
 
-*Both legs sit below their own MDE at this spec's declared bar.* Kill criterion 2
-sets the bar at |t| ≥ 2.5, but `min_detectable_pips` was called with its α=0.05
-default, so every MDE printed used t=1.96 and was 19% too small:
+*The MDE was computed at the wrong bar, and the effect's power is ~74%, not 80%.*
+Kill criterion 2 sets the bar at |t| ≥ 2.5, but `min_detectable_pips` was called
+with its α=0.05 default, so every MDE printed used t=1.96 and was 19% too small.
+Corrected, with the re-run's confirmed figures:
 
-| leg | effect (fixed) | MDE printed (t=1.96) | MDE at declared t=2.5 |
-|---|---|---|---|
-| prefix_long B | +2.068p | 1.837p — looks cleared | **2.192p — below floor** |
-| postfix_short B | +1.561p | 1.406p — looks cleared | **1.677p — below floor** |
+| leg | effect | sig. threshold (t=2.5) | observed t | MDE@80% | power vs this effect |
+|---|---|---|---|---|---|
+| prefix_long B | +2.068p | 1.640p | **+3.15** | 2.192p | **74.3%** |
+| postfix_short B | +1.561p | 1.255p | **+3.11** | 1.677p | **72.9%** |
 
-The prefix effect and its printed MDE agree to 0.001 pips, which is why it read
-as a pass. At the bar this spec actually declared, neither leg reaches the
-smallest effect the test could resolve. This is independent of the spread
-question: it holds whichever spread is assumed, because a constant cost shifts
-the mean and leaves the sd untouched.
+Both effects sit *between* the significance threshold and the 80%-power MDE. So
+both are significant at the pre-declared bar — prefix at t=3.15, clearing the t=3
+multiple-testing bar with Sharpe 0.743 against 0.71 — while the study carries
+roughly 74% power against an effect of that size rather than 80%. A repeat
+18-year sample would find it significant about three times in four.
+
+This is a statement about replication reliability, not detectability. An earlier
+revision of this paragraph claimed the legs fell "below floor" and did not reach
+the smallest resolvable effect; that was wrong, and conflated the 80%-power
+threshold with the significance threshold. The effect is detected. What is not
+settled is the separation, below.
 
 Annualised vol is only **0.86%**, because exposure is ~2 hours per trade. That
 makes the strategy capital-efficient and leverable; at 10× it is 6.4%/yr at 8.6%

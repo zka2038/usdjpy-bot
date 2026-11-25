@@ -35,19 +35,18 @@ spread profile, whose flat 0.3-pip fallback was within 0.06 pips of the real
 hour-8 value and so could not be noticed in any output it reached. Confirm the
 restored numbers before quoting any of them.
 
-**Then know that the download no longer settles spec 004.** This is the finding
-that changes the plan. At the t=2.5 bar the spec itself declared, prefix B needs
-**990 trades** for its MDE to fall below its own effect and has **882** — 108
-short, about 2.2 more years of gotobi-proper days at 49 a year. Spending the
-entire remaining holdout (2025-01-01 to the 2026-06-05 data end, 1.43 years,
-~70 trades) takes n to ~952 and MDE to 2.110 pips against an effect of 2.068.
-**It still does not reach.** So spec 004 cannot be resolved at its own bar with
-any data that exists, and no spread measurement changes that: a constant cost
-moves the mean and leaves the sd alone.
+**The effect is confirmed; its replication reliability is ~74%.** The re-run on
+committed code reproduces spec 004 exactly: prefix B +2.068 pips at **t +3.15**
+(Sharpe 0.743, clearing the t=3 bar of 0.71), postfix B +1.561 at **t +3.11**,
+sub-periods +2.53 / +2.21 / +0.87 and +1.84 / +0.72 / +2.96. Both are significant
+at the pre-declared 2.5 bar. But power against an effect of that size is **74.3%**
+and **72.9%**, not 80%: a repeat 18-year sample finds it about three times in
+four. Reaching 80% needs 990 prefix trades against the 882 available, and the
+whole remaining holdout adds only ~70.
 
-What the download still buys is the cost question — whether the point estimate
-survives realistic 2007-2024 spreads — which is worth knowing but is no longer
-the thing standing between this project and a decision.
+That is a reason to want breadth, not a reason to disbelieve the result — and it
+leaves the download's purpose unchanged, since tradeability still turns on the
+2007-2024 spread.
 
 **The way out is breadth, which this repo's own limit section already names.**
 Detectable Sharpe is `2/sqrt(years)` whatever the horizon, and only
@@ -242,12 +241,15 @@ trading turns entirely on a spread nobody measured in 2007. That is a tractable
 question with a known answer-shape, which is a better position than most of this
 project has been in.
 
-What this session changed, beyond the horizon: the project's blocker moved from
-cost provenance to sample size. Spec 004's effect is below the smallest effect its
-own test can resolve, and neither the holdout nor better spread data closes that
-gap. Breadth across JPY crosses is the only lever available that does not require
-waiting, and it has the useful property of testing the mechanism rather than the
-result.
+What this session changed, beyond the horizon: spec 004's numbers became
+reproducible. They were written up from a working tree whose exec-hour fix was
+never committed, so for several days the repo could not produce its own
+headline result and nobody noticed, because the gap was 0.23 pips and everything
+still looked plausible. The effect survives the correction and strengthens
+slightly (t +2.80 to +3.15). What remains open is the separation, which needs
+2.3x the month-end sample that 18 years provides, and tradeability, which needs
+the spread. Breadth across JPY crosses addresses the first and tests the
+mechanism rather than the result.
 
 The one thing that has genuinely narrowed is the horizon. This began as a
 days-to-week project; spec 005 priced that horizon at 4.42 pips of financing over

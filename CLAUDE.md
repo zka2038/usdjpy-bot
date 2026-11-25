@@ -50,10 +50,14 @@ Each tuned number spends statistical power and there is none spare — see
 this goes wrong, both of which flatter the null. `min_detectable_pips` defaults to
 `alpha=0.05` (t=1.96); if the kill criterion is |t| >= 2.5 the MDE must use that,
 or it understates the bar by 19%. And SE(rho) is `se_ratio/sqrt(n)`, not
-`1/sqrt(n)` — the HC sandwich is the SE the test actually uses. Spec 004's two
-legs both sit BELOW their own MDE at the declared bar (+2.068 vs 2.192 pips,
-+1.561 vs 1.677) and looked like they cleared it only because the printed MDE
-used 1.96.
+`1/sqrt(n)` — the HC sandwich is the SE the test actually uses.
+
+**And do not read the MDE as a detectability floor.** MDE@80% is the effect that
+would be found 80% of the time; the significance threshold is lower. An effect
+between the two is significant in this sample and simply under-powered for
+replication. Spec 004's prefix leg is +2.068 pips against a t=2.5 threshold of
+1.640 and an MDE@80% of 2.192: significant at t=3.15, with 74% power. Quote the
+power, not a verdict on whether the effect "reached" the MDE.
 
 **Harness recovery is not power.** `signals.synthetic_check` confirms the code can
 find a signal; it says nothing about whether this sample can. Spec 003's harness
@@ -202,14 +206,16 @@ All of these manufacture *positive* results from no signal.
 | 001 gotobi / Tokyo fix | **upheld, mechanism unconfirmed** | 004 showed B differs from C, which restates 001's own claim on a subset. Its A-vs-B separation was uninformative, so month-end is NOT ruled out as a contributor. Do not restate 001 as Gotobi-proper on 004's authority |
 | 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | max abs(t_hc) 1.80 vs 2.81 bar, right sign at all 4 h. NOT a well-powered null: MDE SR is 0.97 against a 0.73 tradeability bar |
-| 004 turn-of-month separation | **undecidable** | Its declared test (A-vs-B) gave t -1.37 / +0.20 with MDE 2.3x the effect: unanswerable, not answered. Both legs sit below their own MDE. Numbers pending re-run on committed code |
+| 004 turn-of-month separation | **effect confirmed; separation unanswerable** | B vs C net of costs: prefix +2.068p t +3.15 (SR 0.743, clears the t=3 bar of 0.71), postfix +1.561p t +3.11; power 74% / 73%. Its declared A-vs-B test gives t -1.37 / +0.20 at MDE 2.3x the effect, so month-end is not ruled out. Tradeability still blocked on spread provenance |
 | 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.19/+0.47/-0.04 vs 3.0 bar. Financing alone took ~5 pips/trade |
 
 Eight signal families examined, six dead. Spec 004 is the only surviving effect:
 Gotobi-proper differs from control on cost-free mid prices, 6/6 sub-period cells
-positive, as-run Sharpe 0.74 (prefix) against a t=3 bar of 0.71 - but that 0.74
-needs the exec-hour fix, which reached the repo only in this commit, and the
-effect of +2.068 pips is below its own MDE of 2.192 at the bar spec 004 declared.
+positive, and net of base costs prefix +2.068 pips at t +3.15 (Sharpe 0.743,
+clearing the t=3 bar of 0.71) with postfix +1.561 at t +3.11. Power against
+effects that size is 74% and 73%, so replication is likelier than not but not
+assured. That 0.74 needs the exec-hour fix, which reached the repo only in the
+commit that added this sentence.
 But it is 1.5-2.1 pips against a spread uncertainty of 0.36 measured versus 0.9-1.8
 plausible for 2007-2024, so **tradeability is blocked on spread provenance, not on
 statistics.** Under era-scaled spreads the Sharpe falls to 0.44, below detection.
