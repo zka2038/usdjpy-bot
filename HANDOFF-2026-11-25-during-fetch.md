@@ -154,15 +154,17 @@ exited at the wrong minute.
 anything else.** It would affect spec 004's as-run figures and the 2023 part of
 spec 004's step 0.
 
-### Task 2: Deflated Sharpe from the real trade distribution — **computed, not propagated**
+### Task 2: Deflated Sharpe from the real trade distribution — **DONE, propagated 2026-11-25**
 
 > **Status 2026-11-25:** `scripts/004_deflated_sharpe.py` reproduces 0.9744 / N=8 on
 > the pre-DST-fix archive. On corrected trades, at N=5 specs: prefix DSR 0.988
 > (normal) / 0.990 (sample moments), postfix 0.984 / 0.981. The sample-moment gain on
 > prefix rests on one trade (2011-03-18, +209 pips); without it max N falls from 17
 > to 10. **The user decided: count specs (N=5) for now; legs and variants stay open
-> if specs converge.** The headroom statement and the `CLAUDE.md` / `HANDOFF.md`
-> edits wait for the user, after the spec 004 review below.
+> if specs converge.** Propagated late on 2026-11-25: `CLAUDE.md` (trial budget,
+> holdout power, MDE example, traps 5 and 8, gotchas, *Current state*) and
+> `HANDOFF.md` (§1, §2 rewritten, §4 rows, §5, §6, §7). Headroom stated as about
+> five hypotheses (limits N=10–17 prefix, N=11 postfix).
 > - An independent review on 2026-11-25 found a weekday confound (B 44% Fridays, C
 >   11%): weekday-matched B vs C is t +1.91 / +2.28, below 2.5. Spec 004 now declares
 >   a matched test and evaluates kill criterion 5 per trade. See spec 004 *Results*.
@@ -232,6 +234,11 @@ Any amendment to the spec text must be dated and must state that no filled data
 had been viewed when it was made.
 
 ### Task 4: hygiene
+
+> **Status 2026-11-25:** two items done with the `CLAUDE.md` / `HANDOFF.md` update:
+> `HANDOFF.md` §2's download paragraphs are replaced by a pointer, and the spec 001
+> contradiction is settled (do not restate; HANDOFF §6 withdrawn). Still open: the
+> `calendars.gotobi_days` fix and the stale triage items.
 
 - **Fix the `calendars.gotobi_days` bug.**
   - It loops until the date overflows when `start` is late in a month, e.g.

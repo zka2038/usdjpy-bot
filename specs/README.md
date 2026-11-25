@@ -8,7 +8,7 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 
 | # | Spec | Priority tier / author | Horizon | Data ready? | Status |
 |---|---|---|---|---|---|
-| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative) |
+| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative, and its weekday-matched B vs C is below 2.5) |
 | 002 | [MOF/BoJ intervention disclosure](002-intervention-disclosure.md) | bzk | — | — | rejected |
 | 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | rejected below SR 0.73; undecidable 0.73–0.98 |
 | 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | B differs from unmatched control (t +3.28 / +2.80) but not from weekday-matched control (t +1.91 / +2.28, below 2.5): Gotobi-specific effect not established (2026-11-25 review); separation unanswerable; criterion 4 passes, 5 pending the measured spread; gap fill and matched test declared (see *Dukascopy fetch*) |
