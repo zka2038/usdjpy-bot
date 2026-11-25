@@ -82,3 +82,31 @@ def test_quote_at_rejects_stale():
     bars = pd.DataFrame({"bid": [1.0, 2.0, 3.0], "ask": [1.0, 2.0, 3.0]}, index=idx)
     assert quote_at(bars, pd.Timestamp("2024-01-05 00:02", tz="UTC"))["bid"] == 2.0
     assert quote_at(bars, pd.Timestamp("2024-01-05 01:00", tz="UTC")) is None
+
+
+def test_download_tree_refuses_to_mix_full_and_partial(tmp_path):
+    from usdjpy.dukascopy import TOKYO_MORNING_HOURS, _claim_tree, download_range
+
+    # Pre-manifest tree with files (like data/USDJPY/) counts as full-day.
+    legacy = tmp_path / "full" / "USDJPY" / "2003"
+    legacy.mkdir(parents=True)
+    pd.DataFrame({"bid": [1.0]}).to_parquet(legacy / "2003-05-05.parquet")
+    with pytest.raises(ValueError, match="full-day"):
+        download_range("USDJPY", dt.date(2003, 5, 6), dt.date(2003, 5, 6),
+                       tmp_path / "full", hours=TOKYO_MORNING_HOURS)
+    assert not (tmp_path / "full" / "USDJPY" / "_hours.json").exists()
+
+    # Fresh tree is claimed by its first writer; a mismatch is refused either way.
+    tokyo = tmp_path / "tokyo" / "USDJPY"
+    _claim_tree(tokyo, TOKYO_MORNING_HOURS)
+    _claim_tree(tokyo, (0, 1, 2, 22, 23))          # same set, any order
+    with pytest.raises(ValueError):
+        _claim_tree(tokyo, None)
+    with pytest.raises(ValueError):
+        _claim_tree(tokyo, (0, 1))
+
+
+def test_fetch_day_rejects_bad_hours():
+    from usdjpy.dukascopy import fetch_day
+    with pytest.raises(ValueError):
+        fetch_day("USDJPY", dt.date(2024, 1, 2), hours=(23, 24))

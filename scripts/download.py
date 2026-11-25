@@ -36,6 +36,8 @@ p.add_argument("--tokyo-hours", action="store_true",
 p.add_argument("--out-dir", default=None,
                help="override the destination (default: DATA_DIR, or DATA_DIR/tokyo_hours "
                     "with --tokyo-hours)")
+p.add_argument("--pause", type=float, default=0.0,
+               help="minimum seconds between requests; the datafeed rate-limits (HTTP 429)")
 a = p.parse_args()
 
 hours = TOKYO_MORNING_HOURS if a.tokyo_hours else None
@@ -60,4 +62,5 @@ print(f"{a.symbol}  {a.start} -> {a.end}  ({n_days:,} non-Saturday days)")
 print(f"hours: {'ALL 24' if hours is None else str(hours)}"
       f"   requests: ~{n_days * (24 if hours is None else len(hours)):,}")
 print(f"dest:  {out_dir}")
-download_range(a.symbol, a.start, a.end, out_dir, overwrite=a.overwrite, hours=hours)
+download_range(a.symbol, a.start, a.end, out_dir, overwrite=a.overwrite, hours=hours,
+               pause=a.pause)
