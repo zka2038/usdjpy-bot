@@ -51,7 +51,7 @@ if a.what == "status":
     sys.exit(0)
 
 start = a.start or EARLIEST.get(a.symbol, dt.date(2003, 5, 4))
-end = a.end or (dt.datetime.utcnow().date() - dt.timedelta(days=1))
+end = a.end or (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1))
 print(f"{a.symbol} {a.what}: {start} -> {end}  -> {a.out / a.symbol}")
 print(f"workers {a.workers}, max {a.rate}/s, weekend hours {'fetched' if a.all_hours else 'skipped (audited)'}")
 

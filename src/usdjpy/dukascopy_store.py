@@ -280,8 +280,9 @@ class Fetcher:
     pushback_max: float = 600.0
     log: Callable[[str], None] = print
     _pushback_level: int = 0
-    _pushback_logged: float = -1e9
+    _pushback_until: float = -1e9
     _ok_since_pushback: int = 0
+    _pb_lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
 
     def _session(self) -> requests.Session:
         s = getattr(self._local, "s", None)
@@ -315,7 +316,7 @@ class Fetcher:
                     continue
                 self.failures[kind] += 1
                 if isinstance(e, requests.ConnectionError):   # online, but Dukascopy cut us off
-                    self._pushback()
+                    self._pushback(detail=str(e))
                 else:
                     self._backoff(attempt, throttle=True)
                 attempt += 1
@@ -351,18 +352,23 @@ class Fetcher:
         if self._ok_since_pushback >= 50:
             self._pushback_level = 0
 
-    def _pushback(self) -> None:
-        """Connection refused/reset while the internet is fine: Dukascopy is limiting us."""
-        self._ok_since_pushback = 0
-        wait = min(self.pushback_max, self.pushback_cooldown * 2 ** self._pushback_level)
-        self._pushback_level += 1
-        self.rate.throttled(cooldown=wait)
-        now = time.monotonic()
-        if now - self._pushback_logged > 30:
-            self._pushback_logged = now
-            self.log(f"  Dukascopy is dropping connections (internet OK) - backing off {wait:.0f}s, "
-                     f"rate now {self.rate.rate:.1f}/s")
-        time.sleep(wait * (0.8 + 0.4 * random.random()))
+    def _pushback(self, detail: str = "") -> None:
+        """Connection refused/reset while the internet is fine: Dukascopy is limiting us.
+
+        Escalates at most once per cooldown: parallel workers usually fail together, and
+        counting each of them separately jumped 30 s straight to 120 s on the first real run."""
+        with self._pb_lock:
+            self._ok_since_pushback = 0
+            now = time.monotonic()
+            if now >= self._pushback_until:
+                wait = min(self.pushback_max, self.pushback_cooldown * 2 ** self._pushback_level)
+                self._pushback_level += 1
+                self._pushback_until = now + wait
+                self.rate.throttled(cooldown=wait)
+                self.log(f"  Dukascopy is dropping connections (internet OK) - backing off {wait:.0f}s, "
+                         f"rate now {self.rate.rate:.1f}/s  [{detail[:90]}]")
+            remaining = self._pushback_until - now
+        time.sleep(max(0.0, remaining) * (0.9 + 0.2 * random.random()))
 
     def _backoff(self, attempt: int, throttle: bool) -> None:
         delay = min(120.0, 2.0 ** attempt) * (0.5 + random.random())

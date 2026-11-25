@@ -286,6 +286,14 @@ def test_dropped_connections_while_online_back_off_instead_of_pausing(tmp_path):
     man = ds.download("m1", "USDJPY", dt.date(2024, 1, 2), dt.date(2024, 1, 2), tmp_path,
                       fetcher=f, today=TODAY, log=logs.append, workers=1)[0]
     assert man["status"] == "partial" and man["errors"] == [] and gate.pauses == 0   # one day -> partial month
-    assert f.rate.throttle_events == 3 and f.rate.rate < 8.0
+    assert f.rate.throttle_events == 1 and f.rate.rate < 8.0   # 3 drops inside one cooldown = one escalation
     assert any("dropping connections" in m for m in logs)
     assert man["failed_attempts"] == {"ConnectionError": 3}
+
+
+def test_pushback_escalates_once_per_cooldown_not_per_worker():
+    logs = []
+    f = ds.Fetcher(ds.AdaptiveRate(8.0), log=logs.append, pushback_cooldown=30)
+    for _ in range(2):                    # two workers cut off at the same moment
+        f._pushback("Connection reset by peer")
+    assert f._pushback_level == 1 and len(logs) == 1 and "30s" in logs[0] and "reset by peer" in logs[0]
