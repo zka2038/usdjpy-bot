@@ -190,6 +190,19 @@ number governs which sample every future spec may spend.
 
 ### Task 3: write spec 004's gap-fill analysis before the data arrives
 
+> **Status 2026-11-25: questions settled, code not yet written.** The ambiguities
+> below, and six more, were researched against field practice
+> (`docs/research/Gap fill cost methodology standards.md`) and decided by the user.
+> The decisions are spec 004's *Amendment: field standards*. Build the analysis to
+> that section: own quote first, else stage 2 yearly mean; no-quote trades imputed
+> by (fill bar × year) and flagged; no fetch deadline; and every reported-only
+> diagnostic it lists. The criterion 5 diagnostics (95% label, break-even at t = 2.5
+> and 1.645, bp t at own price, bp-stability test before the 159 view) are
+> implemented in this task's code, not as a separate edit to
+> `004_spread_sensitivity.py`.
+> - The fetch died once (about 22:43–23:02 UTC, no traceback) and was restarted
+>   with a dated line in `fetch.log`. Check it is alive before relying on it.
+
 Implement spec 004's *Gap fill* section exactly: step 0 (both parts), the filled
 analysis, the measured-spread cost column, and re-derived figures 1–7, each with
 *as run* and *filled* columns. Writing it now, unseen, means the eventual run

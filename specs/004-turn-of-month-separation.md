@@ -129,7 +129,10 @@ trade:
   one-sided 95% lower bound of the margin, with any pass or fail within one standard
   error labelled "not resolved"; net mean and t under `PESSIMISTIC` (criterion 4);
   break-even round-trip cost (mean `mid_pips`) in pips and bp; and a bp view at 159,
-  so the effect and the costs are compared at today's price.
+  so the effect and the costs are compared at today's price. *(Relabelled the same
+  day by* Amendment: field standards *in* Gap fill*: the bp view is a forward
+  projection, shown only after a bp-stability test, and a 95% verdict label is
+  reported beside the 1-SE one.)*
 
 ## Parameters
 
@@ -414,7 +417,13 @@ Break-even round-trip cost (mean `mid_pips`): prefix 3.31 pips = 3.16 bp, postfi
 2.63 pips = 2.37 bp. The **measured** column governs and needs the fetch; until
 then criterion 5 is **pending**. The bp view scales the effect to today's price,
 which raises it by ~42%, so tradeability at today's prices is better than the pips
-table suggests. It is not the governing column.
+table suggests. It is not the governing column. *(Qualified the same day, see*
+Amendment: field standards*: the field states effects and costs in bp at each
+trade's own price and never re-prices a historical effect to today's. The bp view
+assumes the effect is constant in bp while pip-quoted spread and slippage stay
+fixed, so it flatters the margin; it is a forward projection, admissible only after
+a bp-stability test. At 95% one-sided confidence the as-run prefix margin, +0.850
+with lower bound −0.240, is not resolved; the "pass" above is the 1-SE label.)*
 
 The verdict still flips between columns, which is the case `004_spread_sensitivity.py`
 was written to detect. **The effect (1.7–2.3 pips) is the same order as the
@@ -592,7 +601,10 @@ both quote:
   - 2007–2014: each trade pays the Dukascopy spread at its own execution bar.
   - 2015 to 2024-06: each trade pays the median spread from the stage 2 sample at
     that execution bar, by calendar year, pooling the B and C sample days. Report
-    the B-versus-C spread difference descriptively.
+    the B-versus-C spread difference descriptively. *(Amended 2026-11-25, before any
+    filled data was viewed: the yearly mean, not median; a trade's own quote wherever
+    one exists; no-quote trades imputed and flagged rather than dropped. See*
+    Amendment: field standards *below.)*
   - From 2024-06-19: Eightcap bid/ask, as now.
 
   Judge kill criterion 5 on the measured column, under both `CostModel()` and
@@ -627,6 +639,65 @@ matched test.
 **Disclosure.** On *as run* data a weekday-dummy regression has already been seen:
 B vs C prefix +1.464 (t 1.89), postfix +1.444 (t 2.36); with year dummies too, t
 1.89 and 2.39. Only the filled run of this test is blind.
+
+### Amendment: field standards (2026-11-25; no filled data had been viewed)
+
+Made on the user's decision after the research report
+[`docs/research/Gap fill cost methodology standards.md`](../docs/research/Gap%20fill%20cost%20methodology%20standards.md),
+which compares each open choice with field practice and cites the sources. The fetch
+was in stage 2, and nothing under `data/tokyo_hours/` had been read beyond filenames
+and the fetch log. No kill criterion, threshold, window or group changes.
+
+**Spreads in the measured column.**
+- *Which quote.* Each trade pays the last quote's ask − bid on the bar `quote_at`
+  selects for its paying leg: the entry bar for the long prefix leg, the exit bar
+  for the short postfix leg. (Unchanged; confirmed as the convention of the closest
+  published Tokyo-fix backtest, Krohn, Mueller & Whelan, JF 2024.)
+- *Own quote first.* Any trade with its own Dukascopy quote at its paying bar pays
+  that quote, whatever its year: every 2007–2014 trade, the 2023 stage 1 fills, and
+  any 2015–2024 trade that falls on a stage 2 sample day.
+- *Mean, not median.* Trades without their own quote in 2015 to 2024-06 pay the
+  yearly **mean** (not median) spread of the stage 2 sample at their paying bar,
+  pooling B and C sample days. The median and the mean − median gap are reported.
+- *No-quote trades are imputed, not dropped.* A 2007–2014 trade with no Dukascopy
+  quote within `quote_at`'s tolerance at its paying bar is charged the mean measured
+  spread of its (fill bar × year) cell, flagged as imputed, and kept in the governing
+  column. The complete-case column (imputed trades dropped) is reported beside it,
+  with the count dropped.
+
+**Completion of the fetch (replaces "report to the user if it gives up").** There is
+**no deadline**, by the user's decision. The analysis runs only when every stage of
+`download_gap_fill.py` has 0 requests left. A day counts as fetched once its file is
+written; an hour the datafeed answers with 404 is recorded empty and counts as
+fetched. If the fetch stops for any reason, including the 200-restart cap, it is
+restarted; it is never abandoned on a timer. A day or hour leaves the requirement only
+by a dated note here recording the user's decision that it is unnecessary, made before
+any filled data is viewed, and entered in the deviations table below.
+
+**Reported only (govern nothing):**
+- Criterion 5: a 95% one-sided label (lower bound above 0 = pass, upper bound below 0
+  = fail, otherwise not resolved) beside the 1-SE label; net t in every cost column
+  (as run, era, era ×2, measured); break-even all-in cost at net t = 2.5 and t = 1.645
+  as well as at zero; break-even ÷ base all-in cost.
+- bp: per-trade mean and t in bp at each trade's own entry price. The bp view at 159
+  is relabelled a forward projection and shown only after a bp-stability test (effect
+  in bp by price-level tercile and by era, and per-trade pips regressed on price).
+- Spreads: instant versus minute-mean spread at each fill bar; B-only versus C-only
+  spreads at the fill bars; measured ÷ synthetic spread by year and fill bar (the era
+  multipliers estimated rather than assumed, shown beside ×5 and ×2.5); a per-trade
+  source flag (own quote, stage 2 mean, imputed, Eightcap) with the share of trades
+  and of P&L from each; the measured column under a 1-minute tolerance; for
+  2007–2014, the stage-2-style sample estimator against the per-trade mean, so the
+  2015–2024 fallback's bias is known; the 2024 Dukascopy-versus-Eightcap overlap on
+  pre-holdout stage 2 days only.
+- Step 0: the full distribution of differences (median, mean, p90, p99, share above
+  one spread) stated against the 0.360-pip entry spread and the effect; offsets of
+  −2, −1, +1 and +2 minutes beside −60/0/+60; counts a BNHLS-style cleaning pass flags.
+- Missing data: filled, complete-case and their difference; missingness by arm ×
+  fill bar × year; realised volatility on missing versus present bars; and a
+  deviations table (type, reason, timing, whether made before or after the relevant
+  results were seen) covering the DST fix, the weekday-matched test, the criterion 5
+  evaluation note, the withdrawn 1.60 bar, this amendment and any later drop.
 
 ### Figures to re-derive
 
