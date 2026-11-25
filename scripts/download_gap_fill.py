@@ -62,7 +62,7 @@ def utc_days_for(jst_days: list[dt.date]) -> set[dt.date]:
 # Each stage: (UTC start, UTC end, UTC days or None for every day in range, purpose).
 STAGES = {
     "1": (dt.date(2023, 1, 31), dt.date(2023, 7, 31), None,
-          "HistData's Feb-Jul 2023 gap at the 23:00 UTC entry: restores 13 spec 004 prefix trades"),
+          "HistData's Feb-Jul 2023 gap at the 23:00 UTC entry: restores 14 spec 004 prefix trades (13 before the HistData DST fix)"),
     "2": (dt.date(2014, 12, 31), dt.date(2024, 12, 31),
           utc_days_for(spread_sample_jst_days(dt.date(2015, 1, 1), dt.date(2024, 12, 31))),
           "measured spread for the HistData era: first B and first C day of each month"),

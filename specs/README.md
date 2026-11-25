@@ -11,7 +11,7 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 | 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative) |
 | 002 | [MOF/BoJ intervention disclosure](002-intervention-disclosure.md) | bzk | — | — | rejected |
 | 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | rejected below SR 0.73; undecidable 0.73–0.98 |
-| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | effect confirmed (t +3.15 / +3.11); separation unanswerable; tradeability blocked on spread; gap fill declared (see *Dukascopy fetch*) |
+| 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | effect confirmed (t +3.47 / +3.34 net, as run after the 2026-11-25 HistData DST fix; was +3.15 / +3.11); separation unanswerable; tradeability blocked on spread; gap fill declared (see *Dukascopy fetch*) |
 | 005 | [Rate-path revision, trade simulation (H3)](005-rate-path-trade-test.md) | Haru | — | — | rejected |
 | 006 | [Weekend-gap reversal](006-weekend-gap-reversal.md) | Tier 1 #1 | Mon intraday – 3 days | Y (check Sunday-open bars) | idea |
 | 007 | [No-news 1-min shock fade](007-no-news-shock-fade.md) | Tier 1 #2 | 15–60 min | partial (release calendar) | idea |
@@ -48,8 +48,13 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
   - `summarize()` periods don't match the 2015–19/2020–24 split.
   - There is no weekly portfolio simulator (needed for 014/016/017).
   - There is no loader for the H.10 daily or the BoJ call-rate files.
-  - Verify HistData UTC alignment in US summer: `docs/DATA.md` says the raw stamps are NY local with DST,
-    while `scripts/build_github_data.py` applies a fixed +5 h.
+  - ~~Verify HistData UTC alignment in US summer.~~ **Settled 2026-11-25, and restated.** US summer itself
+    is aligned (every full EDT and EST month at offset 0 against Dukascopy and Eightcap). The real fault was
+    narrower: from 2019 HistData's raw clock changes on **EU** DST dates, so in the weeks where US and EU
+    clocks disagree (mid to late March, late October to early November) every bar was one hour early.
+    Corrected in the loader by `datasets.fix_histdata_dst`; evidence in `docs/DATA.md` (HistData row),
+    rerun with `scripts/histdata_alignment_check.py`. Spec 004 was re-run on the corrected bars and its
+    *Results* restated: 21 prefix and 22 postfix B trades moved, the effect strengthened.
 
 ## Dukascopy fetch: options and decision (2026-11-25)
 
@@ -82,15 +87,25 @@ Two further limits on what Dukascopy can do for specs 006–018:
 Spec 004 drops days with no quote at an execution minute. Pre-holdout B (Gotobi-proper) days
 2007–2024: **1,075**.
 
-| | Prefix (n=882) | Postfix (n=947) | Cause |
+| | Prefix (n=881) | Postfix (n=947) | Cause |
 |---|---|---|---|
 | 2007–2014 | 176 | 125 | gaps in the third-party Dukascopy bid export |
-| 2023 | 13 | 0 | HistData's Feb–Jul 2023 gap covers the 23:00 UTC entry. In 2023 the prefix has 47 of 60 days. |
+| 2023 | 14 | 0 | HistData's Feb–Jul 2023 gap covers the 23:00 UTC entry. In 2023 the prefix has 46 of 60 days. |
 | 25 December (2015, 2017, 2019, 2023, 2024) | 4 | 3 | No source quotes; unfillable |
-| **Total** | **193** | **128** | |
+| **Total** | **194** | **128** | |
 
-The prefix leg needs 990 trades for 80% power, and 882 are available. Filled, it would have about
-1,071: about 83% power if the effect holds at +2.068.
+*Restated 2026-11-25 after the HistData DST fix* (`datasets.fix_histdata_dst`); before it the prefix
+column read n=882, 13 in 2023 (47 of 60) and 193 in total. March 2023's US/EU DST mismatch window
+overlaps HistData's 2023 gap, so moving those bars an hour changed which days have a 22:59 quote:
+prefix B lost 2023-03-15 and 2023-03-20 and gained 2023-03-24.
+
+**Power, as the decision was made:** the prefix leg needed 990 trades for 80% power against +2.068
+pips and had 882. **After the DST fix** the as-run prefix effect is +2.301 pips (sd 19.70), which
+needs 819 trades for 80% power at the t=2.5 bar, and 881 are available: 83.3% power already, and
+postfix 80.1% (945 needed, 947 available). So the power shortfall that motivated the fill no longer
+exists on the corrected bars. Filled (about 1,071 prefix and 1,072 postfix trades) power would be
+about 91% and 86% if the corrected effects hold. The fill's other two purposes are unchanged:
+measured 2007–2014 bid/ask for tradeability, and restoring the declared sample.
 
 ### Options
 
@@ -107,13 +122,14 @@ Option C, in order:
 
 | Stage | UTC dates | Requests | Purpose |
 |---|---|---|---|
-| 1 | 2023-01-31 – 2023-07-31, every weekday | 520 | Restores the 13 prefix trades lost to the 2023 gap |
+| 1 | 2023-01-31 – 2023-07-31, every weekday | 520 | Restores the 14 prefix trades lost to the 2023 gap (13 before the 2026-11-25 HistData DST fix) |
 | 2 | First B day and first C day of each month, 2015–2024 (a fixed calendar rule) | 1,604 | Measured spread for the HistData era, on treatment and control days. From 2024-06 it doubles as a Dukascopy-vs-Eightcap venue check. |
 | 3 | 2007–2014, every weekday | 8,354 | Real bid/ask where the spread is least known (the sensitivity script assumes up to 5× today's). Restores 176 prefix and 125 postfix trades. |
 
 **Why C:**
 - It restores the sample spec 004 declared, lifting the prefix leg past the 990 trades needed for
-  80% power.
+  80% power. (After the 2026-11-25 HistData DST fix the corrected as-run prefix leg already has 83%
+  power; see *Power* above. This reason no longer applies; the other two do.)
 - It measures the spread where the uncertainty is largest, for 56% of the requests of trimmed
   A.
 - Stage 3 is the first half of trimmed A, so extending to 2015–2024 later wastes nothing.

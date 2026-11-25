@@ -113,7 +113,20 @@ If git reports "non-monotonic index", clean the AppleDouble files (`CLAUDE.md`,
 HANDOFF §6). Commit with the repo's configured identity. Do not push unless the
 user asks.
 
-### Task 1: HistData UTC alignment in US summer
+### Task 1: HistData UTC alignment in US summer — **DONE 2026-11-25**
+
+> **Status:** settled. US summer is aligned, but from 2019 HistData's raw clock
+> changes on EU DST dates, so the US/EU mismatch weeks were an hour early. The user
+> chose to correct it in the loader (`datasets.fix_histdata_dst`) and re-run spec 004.
+> Script, finding, triage item, spec 004 *Results* and a dated *Gap fill* amendment
+> are all committed; `docs/DATA.md`'s HistData row has the evidence.
+> - The as-run spec 004 numbers changed (prefix +2.301p t +3.47, n=881; postfix
+>   +1.683p t +3.34). `results/004_*.csv` now holds the corrected trades; the pre-fix
+>   trades are in `results/archive/004_as_run_pre_dst_fix/`. **Task 2:** reproduce
+>   0.9744 (SR 0.1062, n=882) from the archive, then compute on `results/`.
+> - **Still stale, on purpose:** `CLAUDE.md` (*Current state*, trial-budget
+>   paragraph) and `HANDOFF.md` §2 quote the pre-fix numbers. They are updated after
+>   the Task 2 DSR report, together, per Task 2's stop rule.
 
 **Why first:** it is the one check that could move spec 004's headline numbers.
 The triage lists it as open. `docs/DATA.md` says it is verified, and

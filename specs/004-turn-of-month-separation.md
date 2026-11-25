@@ -1,6 +1,6 @@
 # Spec 004: turn-of-month separation
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.15 / +3.11, 74% power); separation unanswerable; tradeability blocked on spread; gap fill declared 2026-11-25, figures to be re-derived (see *Gap fill*)
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** effect confirmed (t +3.47 / +3.34 net, 83% / 80% power, as run after the 2026-11-25 HistData DST fix; was t +3.15 / +3.11, 74% / 73%); separation unanswerable; tradeability blocked on spread; gap fill declared 2026-11-25, figures to be re-derived (see *Gap fill*)
 
 **This spec exists to resolve a confound in spec 001, not to find a new effect.**
 Read §5 of `Research/Strategy/Hypothesis Review H1 to H3.md` first.
@@ -92,8 +92,9 @@ USDJPY 1-min bid/ask via `usdjpy.dukascopy` from `DATA_DIR` — the same data sp
 already uses. **No new data required**, which is why this is the cheaper of the two
 live specs.
 
-As run, the spec used `datasets.load_minute("combined")`, which drops 193 prefix and
-128 postfix B trades for lack of a quote. The *Gap fill* section below declares how
+As run, the spec used `datasets.load_minute("combined")`, which drops 194 prefix and
+128 postfix B trades for lack of a quote (193 prefix before the 2026-11-25 HistData DST
+fix; see *Results*). The *Gap fill* section below declares how
 they are restored from `data/tokyo_hours/`.
 
 ## Kill criteria (decided BEFORE testing)
@@ -175,23 +176,33 @@ That is a useful result. It retires a family rather than a parameter.
 ## Results
 
 Run 2026-11-25 on `datasets.load_minute("combined")`, 2007-01-31 to 2024-12-30
-(pre-holdout), after the execution-hour fix to `_with_synthetic_ask`. Day counts:
+(pre-holdout), after the execution-hour fix to `_with_synthetic_ask`, and **re-run the
+same day after the HistData DST fix** (`datasets.fix_histdata_dst`; see *Second bug*
+below). Every table shows the corrected figure first and the pre-fix one beside it.
+The pre-fix trade CSVs are kept in `results/archive/004_as_run_pre_dst_fix/`, and
+`scripts/004_spread_sensitivity.py --results-dir` on that folder reproduces every
+pre-fix number below. Day counts:
 A 234, B 1159, C 3357, A/B overlap 0. Month-end is 234 of spec 001's 1393
 treatment days = **17%**.
 
 ### The clean test — mid_pips, no cost assumption
 
-| Test | prefix_long | postfix_short | MDE | verdict |
+| Test | prefix_long | postfix_short | MDE @ t=2.5 (prefix / postfix) | verdict |
 |---|---|---|---|---|
-| A vs C | −0.23 (t −0.13) | +1.87 (t +1.09) | 4.8–4.9p | null, **uninformative** |
-| **B vs C** | **+2.275 (t +3.04)** | **+1.513 (t +2.62)** | 2.09 / 1.61p | **DIFFERENT** |
-| A vs B | −2.50 (t −1.37) | +0.36 (t +0.20) | 5.1 / 4.9p | null, **uninformative** |
+| A vs C | −0.08 (t −0.05); was −0.23 (t −0.13) | +2.00 (t +1.16); was +1.87 (t +1.09) | 5.85 / 5.74p | null, **uninformative** |
+| **B vs C** | **+2.465 (t +3.28)**; was +2.275 (t +3.04) | **+1.630 (t +2.80)**; was +1.513 (t +2.62) | 2.51 / 1.95p | **DIFFERENT** |
+| A vs B | −2.55 (t −1.39); was −2.50 (t −1.37) | +0.37 (t +0.21); was +0.36 (t +0.20) | 6.15 / 5.90p | null, **uninformative** |
+
+The MDE column is now at the declared t=2.5 bar. It previously read 4.8–4.9, 2.09 / 1.61
+and 5.1 / 4.9 pips, which were computed at t=1.96 (`004_spread_sensitivity.py` hard-coded
+2.80 standard errors); the corrected pre-fix values are 5.83 / 5.72, 2.50 / 1.93 and
+6.11 / 5.88. No verdict changes.
 
 **The hypothesis is refuted, and in the opposite direction.** This spec predicted
 month-end would dominate and Gotobi-proper would be indistinguishable from
 control. The data says Gotobi-proper differs from control in both rules, same
 sign, with MDE **below** the published 2.86-pip effect — an informative positive.
-Month-end shows nothing, but at MDE 1.7× the effect we cannot *see* it, which is
+Month-end shows nothing, but at an MDE about 2× the effect (at the t=2.5 bar) we cannot *see* it, which is
 not the same as it contributing nothing.
 
 **So spec 001's stated mechanism survives.** The effect lives in importer
@@ -214,10 +225,11 @@ pre-holdout month-end days is all 18 years provides.
 
 | rule | 2005–2014 | 2015–2021 | 2022+ |
 |---|---|---|---|
-| B prefix | +2.53 (t +2.10, n=302) | +2.21 (t +2.84, n=414) | +0.87 (t +0.46, n=166) |
-| B postfix | +1.84 (t +2.36, n=353) | +0.72 (t +1.07, n=415) | +2.96 (t +1.98, n=179) |
+| B prefix | +2.53 (t +2.10, n=302) | +2.61 (t +3.21, n=414); was +2.21 (t +2.84) | +1.12 (t +0.59, n=165); was +0.87 (t +0.46, n=166) |
+| B postfix | +1.84 (t +2.36, n=353) | +0.91 (t +1.36, n=415); was +0.72 (t +1.07) | +3.16 (t +2.09, n=179); was +2.96 (t +1.98) |
 
-6/6 cells positive, 4/6 at |t| ≥ 1.96. Kill criterion 3 (pre-2008 only) does not
+2005–2014 is unchanged: the fix touches 2019 onward only. 6/6 cells positive, 4/6 at
+|t| ≥ 1.96, before and after. Kill criterion 3 (pre-2008 only) does not
 fire: the effect is present across all three periods, weakest most recently in
 the prefix rule and strongest most recently in the postfix.
 
@@ -225,12 +237,18 @@ the prefix rule and strongest most recently in the postfix.
 
 | | trades/yr | sd/trade | as run | era | live (73% haircut) |
 |---|---|---|---|---|---|
-| prefix_long | 49 | 19.5p | **0.74** | 0.44 | 0.20 |
-| postfix_short | 53 | 15.4p | **0.73** | 0.37 | 0.10 |
+| prefix_long | 48.9 | 19.7p | **0.817** (was 0.743) | 0.522 (was 0.444) | 0.221 (was 0.201) |
+| postfix_short | 52.6 | 15.5p | **0.788** (was 0.733) | 0.424 (was 0.368) | 0.213 (was 0.198) |
 
-18-year detection bar (t=2) is 0.47; multiple-testing bar (t=3) is 0.71. The
-as-run Sharpe of 0.74 clears t=3, which was the first result in this project to
-do so. Under era-scaled spreads it falls to 0.44, below even detection.
+18-year detection bar (t=2) is 0.47; multiple-testing bar (t=3) is 0.71. Both
+as-run Sharpes clear t=3. Under era-scaled spreads prefix falls to 0.52, above
+detection but below t=3, and postfix to 0.42, below detection. Before the DST
+fix prefix era was 0.44, below detection.
+
+*Correction to this table's earlier version:* postfix "live" read 0.10. Live is
+as-run × 0.27, as the prefix row computed it, which gives 0.198; the 0.10 was
+0.27 × the *era* Sharpe. Every figure here is now printed by
+`004_spread_sensitivity.py` rather than computed by hand.
 
 **Two corrections that undercut this table.**
 
@@ -240,7 +258,9 @@ paragraph; the fix existed only in a working tree. A clean clone produced prefix
 +1.838 and Sharpe 0.661, not +2.068 and 0.743 — short by exactly 0.230 pips a
 trade, with postfix off by 0.012, which is the trap-6 signature (0.600 − 0.360 on
 the entry leg only). The 0.74 is right for correct code; it was not reproducible.
-Re-run and confirm before quoting it again.
+Re-run and confirm before quoting it again. (Superseded as the headline on
+2026-11-25 by the HistData DST fix: 0.743 is the correct *pre-DST-fix* figure,
+reproducible from the archived CSVs; the current figure is 0.817.)
 
 *The MDE was computed at the wrong bar, and the effect's power is ~74%, not 80%.*
 Kill criterion 2 sets the bar at |t| ≥ 2.5, but `min_detectable_pips` was called
@@ -249,14 +269,16 @@ Corrected, with the re-run's confirmed figures:
 
 | leg | effect | sig. threshold (t=2.5) | observed t | MDE@80% | power vs this effect |
 |---|---|---|---|---|---|
-| prefix_long B | +2.068p | 1.640p | **+3.15** | 2.192p | **74.3%** |
-| postfix_short B | +1.561p | 1.255p | **+3.11** | 1.677p | **72.9%** |
+| prefix_long B | +2.301p | 1.659p | **+3.47** | 2.218p | **83.3%** |
+| postfix_short B | +1.683p | 1.258p | **+3.34** | 1.681p | **80.1%** |
+| *prefix_long B, before DST fix* | +2.068p | 1.640p | +3.15 | 2.192p | 74.3% |
+| *postfix_short B, before DST fix* | +1.561p | 1.255p | +3.11 | 1.677p | 72.9% |
 
-Both effects sit *between* the significance threshold and the 80%-power MDE. So
-both are significant at the pre-declared bar — prefix at t=3.15, clearing the t=3
-multiple-testing bar with Sharpe 0.743 against 0.71 — while the study carries
-roughly 74% power against an effect of that size rather than 80%. A repeat
-18-year sample would find it significant about three times in four.
+Before the DST fix both effects sat *between* the significance threshold and the
+80%-power MDE: significant, with roughly 74% power against an effect of that size.
+After it both are at or above the 80% MDE: prefix by 0.08 pips (83% power), postfix
+by 0.002 pips (80%). A repeat 18-year sample would find each significant about four
+times in five. The postfix margin is nil, so read it as "about 80%", not as a pass.
 
 This is a statement about replication reliability, not detectability. An earlier
 revision of this paragraph claimed the legs fell "below floor" and did not reach
@@ -264,10 +286,11 @@ the smallest resolvable effect; that was wrong, and conflated the 80%-power
 threshold with the significance threshold. The effect is detected. What is not
 settled is the separation, below.
 
-Annualised vol is only **0.86%**, because exposure is ~2 hours per trade. That
-makes the strategy capital-efficient and leverable; at 10× it is 6.4%/yr at 8.6%
-vol. Sharpe is leverage-invariant, so the honest live expectation remains 0.20,
-i.e. roughly 1.7%/yr at that leverage.
+Annualised vol is only **0.87%** (prefix; 0.86% before the DST fix), because
+exposure is ~2 hours per trade. That makes the strategy capital-efficient and
+leverable; at 10× it is 7.1%/yr at 8.7% vol (6.4% at 8.6% before). Sharpe is
+leverage-invariant, so the honest live expectation is 0.22, i.e. roughly 1.9%/yr at
+that leverage.
 
 ### Tradeability: undecidable, and for a stateable reason
 
@@ -277,17 +300,18 @@ Kill criterion 5 as written quoted a 1.84-pip bar, computed with the pre-fix
 
 | | as run | era | era ×2 |
 |---|---|---|---|
-| prefix_long | +2.068 **passes** | +1.236 fails | +0.001 fails |
-| postfix_short | +1.561 fails | +0.784 fails | −0.318 fails |
+| prefix_long | +2.301 **passes** (was +2.068, passed) | +1.468 fails (was +1.236) | +0.233 fails (was +0.001) |
+| postfix_short | +1.683 **passes** (was +1.561, **failed**) | +0.907 fails (was +0.784) | −0.196 fails (was −0.318) |
 
-The verdict flips between columns, which is the case `004_spread_sensitivity.py`
-was written to detect. **The effect (1.5–2.1 pips) is the same order as the
+The DST fix moves postfix across the 1.60 bar in the as-run column, by 0.08 pips.
+It changes no other cell's verdict. The verdict still flips between columns, which is the case `004_spread_sensitivity.py`
+was written to detect. **The effect (1.7–2.3 pips) is the same order as the
 spread uncertainty (0.36 measured, 0.9–1.8 plausible for 2007–2024).** So "is
 this tradeable" is literally the question "what was the retail spread in
 2007–2024", and bid-only data cannot answer it. The admissible bid/ask slice is
 2024-06-19 onward, which is 6½ pre-holdout months.
 
-Ignore the `sig` flags on C_control under era costs (t up to −6.44). Adding
+Ignore the `sig` flags on C_control under era costs (t up to −6.47; −6.44 before the DST fix). Adding
 spread uniformly shifts every group down, and at n=2606 a small shift is
 significant. That is arithmetic, not a finding, and is why the `mid_pips`
 comparison is the test.
@@ -321,6 +345,34 @@ lands at 06:00 JST under EDT and 07:00 under EST, so hours 6–8 are DST-smeared
 Specs 001 and 004 trade 08:00–11:00 and are unaffected. Any spec trading JST 6–8
 must key on (JST hour, NY DST flag).
 
+### Second bug: HistData DST (found and fixed 2026-11-25)
+
+`scripts/histdata_alignment_check.py` (the handoff's task 1) found that
+`histdata_bid_2015_2025.parquet` is aligned to UTC in every full US summer and winter
+month, but **from 2019 HistData's raw clock changes on EU DST dates**. In the weeks
+where US and EU clocks disagree, 2nd to last Sunday of March and last Sunday of
+October to 1st Sunday of November, every bar labelled T held the true T+60 price. So
+a 23:00 UTC entry filled at the true 00:00 price and every leg ran an hour late.
+Evidence and method are in `docs/DATA.md` (HistData row). `datasets.fix_histdata_dst`
+corrects it in the loader, with known-answer tests in `tests/test_datasets.py`.
+
+Scope in this spec: 2019 to 2024-06-18, the HistData share of `combined`. 21 prefix
+and 22 postfix B trades changed, plus 60 prefix and 64 postfix C trades and 6 A
+trades per leg. The 2023 March window overlaps HistData's Feb–Jul 2023 gap, so the
+set of days with a 22:59 quote also moved: prefix B lost 2023-03-15 and 2023-03-20
+and gained 2023-03-24 (n 882 → 881; 2023 now 46 of 60), and prefix C lost two days
+and gained four (2606 → 2608).
+
+Direction: **the fix strengthened every B figure** (prefix +2.068 → +2.301 pips, t
++3.15 → +3.47; postfix +1.561 → +1.683, t +3.11 → +3.34) and flipped one verdict, the
+postfix as-run tradeability cell, by 0.08 pips. The misplaced trades sampled an hour
+of the wrong session rather than leaning toward the hypothesis: before the fix, C
+trades in those weeks averaged −5.35 pips (prefix) and +3.54 (postfix), against near
+zero elsewhere, and B trades −0.17 and +0.55.
+
+This is the second bug in this spec found by an alignment or reproduction check
+rather than by any output looking wrong. Neither produced an implausible number.
+
 ## Gap fill (declared 2026-11-25, before any filled data is seen)
 
 The options, request counts and the choice of fetch are recorded in
@@ -353,6 +405,23 @@ safeguards:
 - The filled sample is the declared one, so it is not a new trial: the trial count
   used by `stats.deflated_sharpe` does not change.
 - Both results are reported side by side.
+
+**Amendment, 2026-11-25 (after the HistData DST fix; no filled data had been viewed.
+The fetch was in stage 1, and nothing under `data/tokyo_hours/` had been read beyond
+filenames and the fetch log).** The fix changes as-run counts that this section quotes;
+it changes no rule, window, group, threshold or kill criterion:
+- **As run** in this section and in *Figures to re-derive* means the as-run on the
+  DST-corrected loader: prefix 881, postfix 947 B trades; 2023 prefix 46 of 60, so 14
+  trades missing in 2023, not 13, and 194 in total. The pre-fix figures stay in
+  *Results* and in `results/archive/004_as_run_pre_dst_fix/`.
+- **Power.** On the corrected bars the as-run prefix leg already has 83% power against
+  its own effect (+2.301 pips; 819 trades needed for 80%), so the power shortfall that
+  motivated this fill no longer exists. The fill is kept for its other two purposes:
+  measured 2007–2014 bid/ask, and restoring the declared sample.
+- **Step 0, Feb–Jul 2023 part.** The question it asks, whether an hour offset appears
+  after the 12 March US DST change, has been answered on existing data: in the stored
+  file it does, from 12 to 24 March 2023, and `load_minute` now corrects it. Step 0
+  will compare against the loader's (corrected) HistData, where no offset should appear.
 
 ### Data
 
