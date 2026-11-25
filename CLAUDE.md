@@ -206,7 +206,15 @@ All of these manufacture *positive* results from no signal.
   MJY contract's maintenance margin, so margin availability is misleading as a
   sizing guide. A stop is not protection: USDJPY moved 160.17 → 156.60 in ~11
   minutes on 2024-04-29, and MOF repeatedly chooses thin-liquidity windows.
-- `docs/DATA.md` calls `histdata_bid_2015_2025.parquet` **"Complete"**. It is not.
+- **`docs/DATA.md` is the only data catalogue.** `data/README.md` carried a second
+  copy of every table and the two drifted in opposite directions — the HistData
+  "Complete" claim corrected in one, `dgs2.csv`/`jgbcme_all.csv` catalogued in the
+  other — so each held one current fact and one stale one, indistinguishably.
+  `data/README.md` is now a pointer. Record provenance in `docs/DATA.md` only.
+  This is the third time in this repo a fact stored twice was corrected once (the
+  others: the HistData DST note, located twice in the wrong file; and the
+  exec-hour fix, documented in two places while existing in neither).
+- `docs/DATA.md` called `histdata_bid_2015_2025.parquet` **"Complete"**. It is not.
   Spec 005 found **up to ~60% of minutes missing between 08:00 and 24:00 UTC from
   February to July 2023**. Spec 004's prefix entry is 23:00 UTC, inside that
   window; its 00:55 exit and the entire postfix leg (00:55 -> 02:00) are outside
