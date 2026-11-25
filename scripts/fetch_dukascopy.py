@@ -1,7 +1,7 @@
 """Download Dukascopy bid/ask history to lossless monthly parquet (resumable).
 
-    python scripts/fetch_dukascopy.py m1                  # 1-min bid+ask candles, 2003-05 -> yesterday  (~45-60 min)
-    python scripts/fetch_dukascopy.py ticks               # every tick, bid+ask                          (~8-14 h)
+    python scripts/fetch_dukascopy.py m1                  # 1-min bid+ask candles, 2003-05 -> yesterday  (~1-1.5 h)
+    python scripts/fetch_dukascopy.py ticks               # every tick, bid+ask                          (~10-20 h)
     python scripts/fetch_dukascopy.py both                # m1 first, then ticks
     python scripts/fetch_dukascopy.py ticks --start 2007-01-01 --end 2024-12-31
     python scripts/fetch_dukascopy.py status              # coverage per year from the manifests
@@ -37,9 +37,9 @@ p.add_argument("--symbol", default=SYMBOL)
 p.add_argument("--start", type=dt.date.fromisoformat, default=None, help="default: earliest available")
 p.add_argument("--end", type=dt.date.fromisoformat, default=None, help="default: yesterday (UTC)")
 p.add_argument("--out", type=pathlib.Path, default=pathlib.Path(DATA_DIR) / "dukascopy")
-p.add_argument("--workers", type=int, default=4, help="parallel connections (default 4)")
-p.add_argument("--rate", type=float, default=8.0,
-               help="max requests/second; halves automatically when Dukascopy throttles (default 8)")
+p.add_argument("--workers", type=int, default=2, help="parallel connections (default 2)")
+p.add_argument("--rate", type=float, default=4.0,
+               help="max requests/second; halves automatically when Dukascopy pushes back (default 4)")
 p.add_argument("--all-hours", action="store_true", help="also request weekend hours (normally skipped)")
 p.add_argument("--overwrite", action="store_true", help="re-download months already marked complete")
 p.add_argument("--raw-cache", type=pathlib.Path, default=None, help="keep original .bi5 files in this folder")

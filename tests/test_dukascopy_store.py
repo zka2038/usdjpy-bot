@@ -264,3 +264,28 @@ def test_failure_reasons_recorded(tmp_path):
     man = ds.download("ticks", "USDJPY", dt.date(2024, 1, 10), dt.date(2024, 1, 10), tmp_path,
                       fetcher=f, today=TODAY, log=lambda m: None)[0]
     assert man["failed_attempts"] == {"HTTP 429": 2}
+
+
+def test_dropped_connections_while_online_back_off_instead_of_pausing(tmp_path):
+    """Dukascopy cutting connections (internet fine) must slow us down, not 'pause for offline'."""
+    class Dropping(FakeSession):
+        def __init__(self):
+            super().__init__()
+            self.drops = 3
+
+        def get(self, url, timeout=None):
+            if self.drops > 0:
+                self.drops -= 1
+                self.calls.append(url)
+                raise ds.requests.ConnectionError("Connection reset by peer")
+            return super().get(url, timeout)
+
+    s, logs = Dropping(), []
+    gate = ds.OnlineGate(check=lambda: True, poll=0, log=logs.append)   # internet is up
+    f = ds.Fetcher(ds.AdaptiveRate(8.0), retries=5, session_factory=lambda: s, gate=gate, log=logs.append)
+    man = ds.download("m1", "USDJPY", dt.date(2024, 1, 2), dt.date(2024, 1, 2), tmp_path,
+                      fetcher=f, today=TODAY, log=logs.append, workers=1)[0]
+    assert man["status"] == "partial" and man["errors"] == [] and gate.pauses == 0   # one day -> partial month
+    assert f.rate.throttle_events == 3 and f.rate.rate < 8.0
+    assert any("dropping connections" in m for m in logs)
+    assert man["failed_attempts"] == {"ConnectionError": 3}

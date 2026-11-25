@@ -214,13 +214,21 @@ class AdaptiveRate:
             self._next = max(self._next, now + cooldown)
 
 
-def internet_up(host: str = "datafeed.dukascopy.com", port: int = 443, timeout: float = 5.0) -> bool:
-    """Can we open a TCP connection at all? Distinguishes 'offline' from 'server refusing us'."""
+NEUTRAL_HOSTS = (("1.1.1.1", 443), ("8.8.8.8", 443), ("www.apple.com", 443))
+
+
+def _tcp(host: str, port: int, timeout: float) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
     except OSError:
         return False
+
+
+def internet_up(timeout: float = 5.0) -> bool:
+    """Is the machine online at all? Probes neutral hosts, NOT Dukascopy: when Dukascopy refuses or
+    drops our connections that is server push-back (slow down), not an outage (pause)."""
+    return any(_tcp(h, p, timeout) for h, p in NEUTRAL_HOSTS)
 
 
 class OnlineGate:
@@ -267,6 +275,13 @@ class Fetcher:
     cache_hits: int = 0
     failures: Counter = dataclasses.field(default_factory=Counter)
     max_offline_rounds: int = 1000
+    # Dukascopy drops/refuses connections when we go too fast. Escalating cooldown, reset on success.
+    pushback_cooldown: float = 30.0
+    pushback_max: float = 600.0
+    log: Callable[[str], None] = print
+    _pushback_level: int = 0
+    _pushback_logged: float = -1e9
+    _ok_since_pushback: int = 0
 
     def _session(self) -> requests.Session:
         s = getattr(self._local, "s", None)
@@ -299,11 +314,14 @@ class Fetcher:
                     offline_rounds += 1      # we were offline: free retry, no slowdown
                     continue
                 self.failures[kind] += 1
-                self._backoff(attempt, throttle=True)
+                if isinstance(e, requests.ConnectionError):   # online, but Dukascopy cut us off
+                    self._pushback()
+                else:
+                    self._backoff(attempt, throttle=True)
                 attempt += 1
                 continue
             if r.status_code == 404:
-                self.rate.success()
+                self._succeeded()
                 return decode(b"")
             if r.status_code == 200:
                 try:
@@ -314,7 +332,7 @@ class Fetcher:
                     self._backoff(attempt, throttle=False)
                     attempt += 1
                     continue
-                self.rate.success()
+                self._succeeded()
                 if cp is not None and r.content:
                     cp.parent.mkdir(parents=True, exist_ok=True)
                     tmp = cp.with_suffix(cp.suffix + ".tmp")
@@ -326,6 +344,25 @@ class Fetcher:
             self._backoff(attempt, throttle=r.status_code in (403, 429) or r.status_code >= 500)
             attempt += 1
         raise FetchError(f"{url}: gave up after {self.retries} attempts ({last})")
+
+    def _succeeded(self) -> None:
+        self.rate.success()
+        self._ok_since_pushback += 1
+        if self._ok_since_pushback >= 50:
+            self._pushback_level = 0
+
+    def _pushback(self) -> None:
+        """Connection refused/reset while the internet is fine: Dukascopy is limiting us."""
+        self._ok_since_pushback = 0
+        wait = min(self.pushback_max, self.pushback_cooldown * 2 ** self._pushback_level)
+        self._pushback_level += 1
+        self.rate.throttled(cooldown=wait)
+        now = time.monotonic()
+        if now - self._pushback_logged > 30:
+            self._pushback_logged = now
+            self.log(f"  Dukascopy is dropping connections (internet OK) - backing off {wait:.0f}s, "
+                     f"rate now {self.rate.rate:.1f}/s")
+        time.sleep(wait * (0.8 + 0.4 * random.random()))
 
     def _backoff(self, attempt: int, throttle: bool) -> None:
         delay = min(120.0, 2.0 ** attempt) * (0.5 + random.random())
@@ -525,8 +562,8 @@ def _finish_m1(sym, year, month, start, end, today, days, res, manifest, pq, mf)
 # Driver
 # ----------------------------------------------------------------------------------------------
 
-def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Path, *, workers: int = 4,
-             rate: float = 8.0, all_hours: bool = False, overwrite: bool = False,
+def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Path, *, workers: int = 2,
+             rate: float = 4.0, all_hours: bool = False, overwrite: bool = False,
              raw_cache: pathlib.Path | None = None, today: dt.date | None = None,
              fetcher: Fetcher | None = None, log: Callable[[str], None] = print) -> list[dict]:
     """Download `kind` ('ticks' or 'm1') month by month. Safe to interrupt and re-run."""
@@ -534,7 +571,7 @@ def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Pat
     start = max(start, EARLIEST.get(sym, start))
     if end < start:
         raise ValueError(f"end {end} is before start {start}")
-    fetcher = fetcher or Fetcher(AdaptiveRate(rate), raw_cache=raw_cache, gate=OnlineGate(log=log))
+    fetcher = fetcher or Fetcher(AdaptiveRate(rate), raw_cache=raw_cache, gate=OnlineGate(log=log), log=log)
     todo = months(start, end)
     done_before = 0
     out_manifests, t0, req0 = [], time.monotonic(), fetcher.requests_made
