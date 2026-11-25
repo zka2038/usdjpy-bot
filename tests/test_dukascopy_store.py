@@ -209,3 +209,58 @@ def test_status_table(tmp_path):
                 fetcher=make_fetcher(FakeSession()), today=TODAY, log=lambda m: None)
     st = ds.status("USDJPY", tmp_path)
     assert st.loc[("m1", 2024), "complete"] == 2
+
+
+def test_simultaneous_errors_halve_rate_once():
+    r = ds.AdaptiveRate(8.0)
+    for _ in range(4):                      # four workers failing at the same moment
+        r.throttled(cooldown=0)
+    assert r.rate == 4.0 and r.throttle_events == 4
+    for _ in range(50):
+        r.success()
+    assert r.rate == pytest.approx(4.6)     # recovers after 50 successes, not 300
+
+
+class OfflineSession(FakeSession):
+    """Raises ConnectionError while `net['offline']` is set, as if Wi-Fi dropped mid-run."""
+
+    def __init__(self, net, go_offline_after=30):
+        super().__init__()
+        self.net, self.go_offline_after = net, go_offline_after
+
+    def get(self, url, timeout=None):
+        if len(self.calls) == self.go_offline_after:
+            self.net["offline"] = True
+        if self.net["offline"]:
+            self.calls.append(url)
+            raise ds.requests.ConnectionError("Network is unreachable")
+        return super().get(url, timeout)
+
+
+def test_offline_pauses_and_resumes_without_failing_or_slowing(tmp_path):
+    net = {"offline": False, "probes": 0}
+
+    def check():                                  # connection returns after three probes
+        if net["offline"]:
+            net["probes"] += 1
+            if net["probes"] >= 3:
+                net["offline"] = False
+        return not net["offline"]
+
+    s, logs = OfflineSession(net), []
+    gate = ds.OnlineGate(check=check, poll=0, log=logs.append)
+    f = ds.Fetcher(ds.AdaptiveRate(8.0), retries=2, session_factory=lambda: s, gate=gate)
+    man = ds.download("m1", "USDJPY", dt.date(2024, 1, 1), dt.date(2024, 1, 31), tmp_path,
+                      fetcher=f, today=TODAY, log=logs.append)[0]
+    assert man["status"] == "complete"
+    assert gate.pauses == 1 and any("back online" in m for m in logs)
+    assert f.rate.throttle_events == 0 and f.rate.rate == 8.0     # outage did not count as throttling
+
+
+def test_failure_reasons_recorded(tmp_path):
+    url = ds.tick_url("USDJPY", dt.datetime(2024, 1, 10, 3))
+    s = FakeSession(flaky={url: 2})
+    f = make_fetcher(s)
+    man = ds.download("ticks", "USDJPY", dt.date(2024, 1, 10), dt.date(2024, 1, 10), tmp_path,
+                      fetcher=f, today=TODAY, log=lambda m: None)[0]
+    assert man["failed_attempts"] == {"HTTP 429": 2}

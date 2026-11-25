@@ -33,8 +33,10 @@ import lzma
 import os
 import pathlib
 import random
+import socket
 import threading
 import time
+from collections import Counter
 from typing import Callable, Iterable
 
 import numpy as np
@@ -173,10 +175,13 @@ def decode_candles(payload: bytes, day: dt.date) -> tuple[pd.DataFrame, str]:
 class AdaptiveRate:
     """Thread-safe token pacing that halves on throttling and creeps back up on success."""
 
-    def __init__(self, rate: float, floor: float = 0.5, ceiling: float | None = None):
+    def __init__(self, rate: float, floor: float = 0.5, ceiling: float | None = None,
+                 recover_every: int = 50, halve_window: float = 5.0):
         self.rate, self.floor, self.ceiling = rate, floor, ceiling or rate
+        self.recover_every, self.halve_window = recover_every, halve_window
         self._next = time.monotonic()
         self._ok_streak = 0
+        self._last_halve = -1e9
         self._lock = threading.Lock()
         self.throttle_events = 0
 
@@ -192,16 +197,59 @@ class AdaptiveRate:
     def success(self) -> None:
         with self._lock:
             self._ok_streak += 1
-            if self._ok_streak >= 300 and self.rate < self.ceiling:
+            if self._ok_streak >= self.recover_every and self.rate < self.ceiling:
                 self.rate = min(self.ceiling, self.rate * 1.15)
                 self._ok_streak = 0
 
     def throttled(self, cooldown: float) -> None:
+        """One server push-back. Parallel workers usually fail together, so the rate is halved at
+        most once per `halve_window` seconds - otherwise 4 simultaneous errors cut 8/s to 0.5/s."""
         with self._lock:
             self.throttle_events += 1
             self._ok_streak = 0
-            self.rate = max(self.floor, self.rate / 2)
-            self._next = max(self._next, time.monotonic() + cooldown)
+            now = time.monotonic()
+            if now - self._last_halve >= self.halve_window:
+                self.rate = max(self.floor, self.rate / 2)
+                self._last_halve = now
+            self._next = max(self._next, now + cooldown)
+
+
+def internet_up(host: str = "datafeed.dukascopy.com", port: int = 443, timeout: float = 5.0) -> bool:
+    """Can we open a TCP connection at all? Distinguishes 'offline' from 'server refusing us'."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+class OnlineGate:
+    """Shared pause for all workers while the machine is offline (Wi-Fi drop, sleep, VPN flap)."""
+
+    def __init__(self, check: Callable[[], bool] = internet_up, poll: float = 30.0,
+                 log: Callable[[str], None] = print):
+        self.check, self.poll, self.log = check, poll, log
+        self._lock = threading.Lock()
+        self.pauses = 0
+        self.paused_seconds = 0.0
+        self._resumed_at = -1e9
+        self.grace = 60.0  # errors this soon after a resume were in flight during the outage
+
+    def wait_until_online(self) -> bool:
+        """Block while offline. Returns True if we were offline (so the failed attempt is free)."""
+        with self._lock:  # one worker probes; the others queue here and pass straight through after
+            if self.check():
+                return time.monotonic() - self._resumed_at < self.grace
+            self.pauses += 1
+            t0 = time.monotonic()
+            self.log(f"  offline - pausing all workers, checking every {self.poll:.0f}s ...")
+            while not self.check():
+                time.sleep(self.poll)
+            dt_ = time.monotonic() - t0
+            self.paused_seconds += dt_
+            self._resumed_at = time.monotonic()
+            self.log(f"  back online after {dt_ / 60:.1f} min - resuming")
+            return True
 
 
 @dataclasses.dataclass
@@ -213,9 +261,12 @@ class Fetcher:
     timeout: tuple[float, float] = (10.0, 60.0)
     raw_cache: pathlib.Path | None = None
     session_factory: Callable[[], requests.Session] = requests.Session
+    gate: OnlineGate | None = None
     _local: threading.local = dataclasses.field(default_factory=threading.local)
     requests_made: int = 0
     cache_hits: int = 0
+    failures: Counter = dataclasses.field(default_factory=Counter)
+    max_offline_rounds: int = 1000
 
     def _session(self) -> requests.Session:
         s = getattr(self._local, "s", None)
@@ -234,15 +285,22 @@ class Fetcher:
         if cp is not None and cp.exists():
             self.cache_hits += 1
             return decode(cp.read_bytes())
-        last = None
-        for attempt in range(self.retries):
+        last, attempt, offline_rounds = None, 0, 0
+        while attempt < self.retries:
             self.rate.wait()
             try:
                 r = self._session().get(url, timeout=self.timeout)
                 self.requests_made += 1
-            except requests.RequestException as e:  # timeouts, resets, DNS
-                last = f"{type(e).__name__}: {e}"
+            except requests.RequestException as e:  # timeouts, resets, DNS, offline
+                kind = type(e).__name__
+                last = f"{kind}: {e}"
+                if (isinstance(e, requests.ConnectionError) and self.gate is not None
+                        and offline_rounds < self.max_offline_rounds and self.gate.wait_until_online()):
+                    offline_rounds += 1      # we were offline: free retry, no slowdown
+                    continue
+                self.failures[kind] += 1
                 self._backoff(attempt, throttle=True)
+                attempt += 1
                 continue
             if r.status_code == 404:
                 self.rate.success()
@@ -252,7 +310,9 @@ class Fetcher:
                     out = decode(r.content)
                 except (lzma.LZMAError, FetchError) as e:  # truncated/corrupt transfer: retry
                     last = f"decode: {e}"
+                    self.failures["corrupt payload"] += 1
                     self._backoff(attempt, throttle=False)
+                    attempt += 1
                     continue
                 self.rate.success()
                 if cp is not None and r.content:
@@ -262,7 +322,9 @@ class Fetcher:
                     os.replace(tmp, cp)
                 return out
             last = f"HTTP {r.status_code}"
+            self.failures[last] += 1
             self._backoff(attempt, throttle=r.status_code in (403, 429) or r.status_code >= 500)
+            attempt += 1
         raise FetchError(f"{url}: gave up after {self.retries} attempts ({last})")
 
     def _backoff(self, attempt: int, throttle: bool) -> None:
@@ -472,10 +534,11 @@ def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Pat
     start = max(start, EARLIEST.get(sym, start))
     if end < start:
         raise ValueError(f"end {end} is before start {start}")
-    fetcher = fetcher or Fetcher(AdaptiveRate(rate), raw_cache=raw_cache)
+    fetcher = fetcher or Fetcher(AdaptiveRate(rate), raw_cache=raw_cache, gate=OnlineGate(log=log))
     todo = months(start, end)
     done_before = 0
     out_manifests, t0, req0 = [], time.monotonic(), fetcher.requests_made
+    fails_before = dict(fetcher.failures)
     for i, (y, m) in enumerate(todo, 1):
         pq, mf = _paths(out, sym, kind, y, m)
         prev = read_manifest(mf)
@@ -491,18 +554,26 @@ def download(kind: str, sym: str, start: dt.date, end: dt.date, out: pathlib.Pat
             size = f"{man.get('minutes', 0):>7,} min"
         else:
             raise ValueError(kind)
+        fails_now = dict(fetcher.failures)
+        man["failed_attempts"] = {k: v - fails_before.get(k, 0) for k, v in fails_now.items() if v - fails_before.get(k, 0)}
+        fails_before = fails_now
         out_manifests.append(man)
         elapsed = time.monotonic() - t0
         n_run = len(out_manifests)
         eta = elapsed / n_run * (len(todo) - i)
         status = man["status"] + (f" ({len(man['errors'])} errors)" if man.get("errors") else "")
+        why = ", ".join(f"{k} x{v}" for k, v in man["failed_attempts"].items())
         log(f"{kind} {y}-{m:02d}  {status:<10} {size}  {time.monotonic() - t_month:5.0f}s  "
             f"rate {fetcher.rate.rate:4.1f}/s  throttles {fetcher.rate.throttle_events}  "
-            f"[{i}/{len(todo)}, ETA {eta / 60:5.1f} min]")
+            f"[{i}/{len(todo)}, ETA {eta / 60:5.1f} min]" + (f"  retried: {why}" if why else ""))
     failed = [m for m in out_manifests if m["status"] == "failed"]
     log(f"{kind}: {len(out_manifests)} months fetched, {done_before} already complete, {len(failed)} failed; "
         f"{fetcher.requests_made - req0:,} requests, {fetcher.cache_hits:,} raw-cache hits, "
         f"{(time.monotonic() - t0) / 60:.1f} min")
+    if fetcher.failures:
+        log(f"{kind}: failed attempts by reason (all retried): {dict(fetcher.failures)}")
+    if fetcher.gate is not None and fetcher.gate.pauses:
+        log(f"{kind}: paused {fetcher.gate.pauses}x for being offline, {fetcher.gate.paused_seconds / 60:.1f} min total")
     return out_manifests
 
 
