@@ -12,8 +12,8 @@ the next action, and the mistakes made getting here so they are not repeated.
 |---|---|---|
 | 001 gotobi / Tokyo fix | **upheld** | 004 confirmed the mechanism lives in Gotobi-proper. Its own file still says "gotobi days" and should be restated. |
 | 002 intervention disclosure | **rejected** | Real effect (−0.172 to −0.269 yen, robustness-tested) but 1.3 episodes/yr, Sharpe 0.24–0.43. Risk overlay only. |
-| 003 rate-path revision | **rejected** | Well-powered null (86% simulated power at ρ=0.05). Max abs(t_hc) 1.80 vs the 2.81 bar. Right sign at all four horizons, too small. |
-| 004 turn-of-month separation | **passed; tradeability undecidable** | Gotobi-proper differs from control, t +3.04 / +2.62, MDE below the published effect. As-run Sharpe **0.74**, the only result here to clear the t=3 bar of 0.71. |
+| 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | Max abs(t_hc) 1.80 vs the 2.81 bar, right sign at all four horizons. The "well-powered null" label was wrong: MDE Sharpe is 0.97 against a 0.73 tradeability bar. |
+| 004 turn-of-month separation | **undecidable** | Its declared test is A-vs-B (t -1.37 / +0.20, MDE 2.3x the effect). B-vs-C (+3.04 / +2.62) restates spec 001 on a subset and was wrongly read as a pass. Both legs sit below their own MDE at the declared t=2.5 bar. |
 | 005 rate-path trade test | **rejected** | Independent H3 retest built in the CLI without `CLAUDE.md`. Three variants, NW t −0.19 / +0.47 / −0.04 against a 3.0 bar, sub-periods flipping sign. Correctly declares itself descriptive and defers to 003. |
 
 Four families died to literature (trend, calendar-as-signal, carry, risk
@@ -24,7 +24,42 @@ data (003). One survives (004), blocked on cost provenance.
 
 ## 2. The one next action that matters
 
-**Download genuine Dukascopy bid/ask for the Tokyo-morning window, 2007–2024.**
+**First, re-run both studies on committed code.** Until the commit carrying this
+paragraph, `datasets._with_synthetic_ask` keyed the synthetic spread on the bar's
+own hour rather than the execution hour. The fix was documented in `CLAUDE.md`
+trap 6 and written up in spec 004, but it lived only in a working tree — a clean
+clone under-charged nothing and over-charged the 08:00 JST entry by 0.230 pips a
+trade, so spec 004's published +2.068 and Sharpe 0.74 came out as +1.838 and
+0.661. The fix is now in the repo along with a `FileNotFoundError` guard on the
+spread profile, whose flat 0.3-pip fallback was within 0.06 pips of the real
+hour-8 value and so could not be noticed in any output it reached. Confirm the
+restored numbers before quoting any of them.
+
+**Then know that the download no longer settles spec 004.** This is the finding
+that changes the plan. At the t=2.5 bar the spec itself declared, prefix B needs
+**990 trades** for its MDE to fall below its own effect and has **882** — 108
+short, about 2.2 more years of gotobi-proper days at 49 a year. Spending the
+entire remaining holdout (2025-01-01 to the 2026-06-05 data end, 1.43 years,
+~70 trades) takes n to ~952 and MDE to 2.110 pips against an effect of 2.068.
+**It still does not reach.** So spec 004 cannot be resolved at its own bar with
+any data that exists, and no spread measurement changes that: a constant cost
+moves the mean and leaves the sd alone.
+
+What the download still buys is the cost question — whether the point estimate
+survives realistic 2007-2024 spreads — which is worth knowing but is no longer
+the thing standing between this project and a decision.
+
+**The way out is breadth, which this repo's own limit section already names.**
+Detectable Sharpe is `2/sqrt(years)` whatever the horizon, and only
+cross-sectional breadth moves it. Spec 004 is one pair, one window, one flow. The
+gotobi mechanism is JPY-side importer settlement demand, so it should appear in
+EURJPY, AUDJPY and GBPJPY on the same dates and in the same Tokyo window. Testing
+the same pre-declared rule across four pairs multiplies effective n without
+waiting two years, and a mechanism that shows up in one pair and not the others
+is evidence against the mechanism rather than for the pair. That is the highest-
+value next study, ahead of the download.
+
+**The download itself, when you get to it.**
 
 Spec 004's Sharpe is 0.74 under the measured 2024–26 raw-spread profile and 0.44
 under plausible era-scaled spreads. That entire swing is one unverifiable
@@ -126,6 +161,11 @@ in each line is right.
 | Vol-standardisation in 003 | "unnecessary, SE ratio 1.0" | **necessary**; applied upstream in `rate_path_signal`. Unscaled gives SE ratio 5.98 and 13% power; scaled gives 0.49 and 86% |
 | 004 sub-period stability | "no period significant, signs flip" | **6/6 cells positive, 4/6 at abs(t) ≥ 1.96** |
 | Location of the HistData error | "it's in CLAUDE.md" | **`Research/Strategy/Initial Strategy Survey.md`**, now corrected in place |
+| exec-hour spread fix | documented as "Fixed in `datasets._with_synthetic_ask`" | **was never committed** until the commit carrying this row; the repo could not reproduce spec 004 |
+| spec 004 prefix Sharpe | 0.74 from a clean clone | **0.74 needs the fix; a clean clone gave 0.661.** The figure is right for correct code, and was not reproducible |
+| spec 004 MDE | 4.8 / 1.8 / 1.0 pips (A/B/C) | **5.71 / 2.19 / 1.20** — printed at alpha=0.05 (t=1.96) while the kill criterion is t=2.5 |
+| spec 003 MDE Sharpe | 0.89 | **0.97** — SE(rho) is `se_ratio/sqrt(n)`, not `1/sqrt(n)` |
+| spec 003 power | "86% at rho=0.05, well-powered" | **underpowered**; that figure is the harness's, and the harness gives t +5.78 where real data gives +1.80 at the same rho |
 | `histdata_bid_2015_2025.parquet` completeness | "Complete, ~372k min/yr" (`docs/DATA.md`) | **not complete** — up to ~60% of minutes missing 08:00–24:00 UTC, Feb–Jul 2023. Corrected in `docs/DATA.md` |
 
 Seven of these were caught by computing something rather than reasoning about it.
@@ -201,6 +241,13 @@ cost-free prices and period-stable across eighteen years, and whether it is wort
 trading turns entirely on a spread nobody measured in 2007. That is a tractable
 question with a known answer-shape, which is a better position than most of this
 project has been in.
+
+What this session changed, beyond the horizon: the project's blocker moved from
+cost provenance to sample size. Spec 004's effect is below the smallest effect its
+own test can resolve, and neither the holdout nor better spread data closes that
+gap. Breadth across JPY crosses is the only lever available that does not require
+waiting, and it has the useful property of testing the mechanism rather than the
+result.
 
 The one thing that has genuinely narrowed is the horizon. This began as a
 days-to-week project; spec 005 priced that horizon at 4.42 pips of financing over

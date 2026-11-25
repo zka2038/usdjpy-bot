@@ -155,7 +155,11 @@ def run_real():
         else:
             v = "SURVIVES -> Layer 2"
         # MDE on rho at 80% power against the pre-declared |t| > BONF_T bar
-        mde_rho = (BONF_T + 0.8416) / np.sqrt(std["n"]) if std["n"] else np.nan
+        # SE(rho) is se_ratio/sqrt(n), not 1/sqrt(n): the HC sandwich is the SE the
+        # test uses, so the MDE must come from it or the null looks better powered
+        # than it is.
+        mde_rho = ((BONF_T + 0.8416) * std["se_ratio"] / np.sqrt(std["n"])
+                   if std["n"] else np.nan)
         print(f"{h:>3} {std['n']:>6} {std['rho']:>+9.4f} {std['t_hc']:>+9.2f} {std['se_ratio']:>6.2f} | "
               f"{raw['rho']:>+9.4f} {raw['t_hc']:>+9.2f} {raw['se_ratio']:>6.2f} | {sr:>+8.2f} "
               f"{mde_rho:>8.4f} {v:>22}")

@@ -17,18 +17,44 @@ BARS = DATA_DIR / "bars_1min"
 FALLBACK_SPREAD = 0.003  # 0.3 pips
 
 
-def _hourly_spread_profile() -> pd.Series:
+def _hourly_spread_profile(allow_fallback: bool = False) -> pd.Series:
+    """Median Eightcap spread by JST hour. Raises if the source file is absent.
+
+    The fallback is a flat 0.3 pips, which is within 0.06 pips of the real hour-8
+    value and therefore indistinguishable from a correct result in any output it
+    reaches. Every cost number in the repo depends on this profile, so a missing
+    file must fail loudly rather than quietly produce plausible figures.
+    """
     path = BARS / "eightcap_bidask_2024_2026.parquet"
     if not path.exists():
+        if not allow_fallback:
+            raise FileNotFoundError(
+                f"No spread profile: {path} is missing.\n"
+                "Every synthetic ask, and so every cost figure, depends on it. The flat "
+                f"{FALLBACK_SPREAD * 100:.1f}-pip fallback is close enough to the real "
+                "profile to look correct while being wrong, so it is not used by default.\n"
+                "Fetch the file, or pass allow_fallback=True if you are deliberately "
+                "running without real spreads."
+            )
         return pd.Series(FALLBACK_SPREAD, index=range(24))
     s = pd.read_parquet(path, columns=["spread_mean"])["spread_mean"]
     prof = s.groupby(s.index.tz_convert("Asia/Tokyo").hour).median()
     return prof.reindex(range(24)).fillna(FALLBACK_SPREAD)
 
 
-def _with_synthetic_ask(bid: pd.Series, source: str) -> pd.DataFrame:
+def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> pd.DataFrame:
+    """Attach a synthetic ask keyed on the EXECUTION hour, not the bar's own hour.
+
+    `events.quote_at(ts)` fills on the bar at `ts - 1min`, so the bar labelled T is
+    the fill for a trade at T + 1min and must carry the spread prevailing then.
+    Keying on the bar's own hour charged spec 004's 08:00 JST entry the hour-7
+    spread (0.600 pips, still decaying from the 06:00 NY rollover spike) instead of
+    hour 8 (0.360) - 0.24 pips a trade on a 1.8-pip effect. `exec_lag` must track
+    `quote_at`'s offset; if that changes, change this.
+    """
     prof = _hourly_spread_profile()
-    spread = prof.reindex(bid.index.tz_convert("Asia/Tokyo").hour).to_numpy()
+    exec_hour = (bid.index + pd.Timedelta(exec_lag)).tz_convert("Asia/Tokyo").hour
+    spread = prof.reindex(exec_hour).to_numpy()
     return pd.DataFrame({"bid": bid.astype("float64"), "ask": bid.to_numpy() + spread, "spread": spread,
                          "source": source}, index=bid.index)
 

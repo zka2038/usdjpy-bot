@@ -1,6 +1,6 @@
 # Spec 003: rate-path revision
 
-**Author:** bzk · **Date:** 2026-11-24 · **Status:** rejected (well-powered null)
+**Author:** bzk · **Date:** 2026-11-24 · **Status:** rejected below SR 0.73; undecidable in the band 0.73-0.98
 
 Layer-1 test is a **predictive regression, not a trade simulation.** Trade rules are
 stated below but are not to be built until the regression passes. See
@@ -150,8 +150,20 @@ hypothesised direction, so criterion 2 does not fire. This is a correctly-signed
 effect that is too small — consistent with the literature placing the predictive
 content at multi-quarter rather than daily horizons.
 
-**The null is well-powered.** Simulation gives 86% power at ρ=0.05 for the
-vol-standardised specification, so this is not H1's uninformative null.
+**The null is NOT well-powered, and the earlier claim here was wrong.** It read
+"simulation gives 86% power at ρ=0.05, so this is not H1's uninformative null".
+That power figure comes from `synthetic_check`, and the harness is not calibrated
+to this sample: it recovered true ρ=0.030 at `t_hc` +5.78, while the real data
+gives ρ=0.0303 at +1.80. Same correlation, t 3.2× smaller, because USDJPY's
+errors are far worse behaved than the synthetic DGP's. Recovery proves the code
+works; it does not transfer power to the real sample.
+
+The sample's own MDE is the number that counts, and it contradicts the claim —
+see the blind-spot paragraph below, which was in this section all along and which
+"well-powered" directly contradicts. Carrying the HC inflation through
+(SE(ρ) = se_ratio/√n, not 1/√n) raises MDE ρ from 0.0563 to **0.0613** at h=1,
+i.e. MDE Sharpe **0.97**, not 0.89. Observed MDE/ρ is 2.0× at h=1 rising to 4.5×
+at h=5: the test cannot see effects of the size present.
 
 **The SE ratio came back at 1.00–1.13, not the predicted 5–7.** That is *not*
 evidence the heteroskedasticity problem is absent: `rate_path_signal()` already
@@ -167,9 +179,10 @@ scaling, the "raw" column is not a fixed-notional specification, so
 verdict is unaffected (all null) but the sizing column is mislabelled. Fix:
 compute ρ once against the unscaled spread change.
 
-**Blind spot to record.** MDE Sharpe is 0.89 while the tradeability bar is
-0.73 (3/√16.7 for the actual span, not the 0.67 the script used). Effects
-implying a Sharpe between 0.73 and 0.89 were **tradeable but undetectable** here.
+**Blind spot to record.** MDE Sharpe is **0.97** (0.89 before the HC correction
+above) while the tradeability bar is 0.73 (3/√16.7 for the actual span, not the
+0.67 the script used). Effects implying a Sharpe between 0.73 and 0.97 were
+**tradeable but undetectable** here.
 A null does not rule them out. The gap exists because testing four horizons
 pushes the Bonferroni detection bar above the economic one.
 

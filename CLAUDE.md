@@ -46,6 +46,23 @@ Each tuned number spends statistical power and there is none spare — see
 
 ## Inference rules (learned the hard way; see the Review doc for the simulations)
 
+**Compute the MDE at the test's own bar, from the sample's own SE.** Two ways
+this goes wrong, both of which flatter the null. `min_detectable_pips` defaults to
+`alpha=0.05` (t=1.96); if the kill criterion is |t| >= 2.5 the MDE must use that,
+or it understates the bar by 19%. And SE(rho) is `se_ratio/sqrt(n)`, not
+`1/sqrt(n)` — the HC sandwich is the SE the test actually uses. Spec 004's two
+legs both sit BELOW their own MDE at the declared bar (+2.068 vs 2.192 pips,
++1.561 vs 1.677) and looked like they cleared it only because the printed MDE
+used 1.96.
+
+**Harness recovery is not power.** `signals.synthetic_check` confirms the code can
+find a signal; it says nothing about whether this sample can. Spec 003's harness
+recovered true rho=0.030 at `t_hc` +5.78 while the real data gave rho=0.0303 at
++1.80 — the same correlation, t 3.2x smaller, because USDJPY's errors are far
+worse behaved than the synthetic DGP's. The simulation's "86% power at rho=0.05"
+is what wrongly licensed calling spec 003 a well-powered null. Power claims come
+from the sample's MDE, never from the calibration run.
+
 **Report the MDE beside every null.** `stats.min_detectable_pips`. A null whose MDE
 sits far above the effect size the literature claims is uninformative, not evidence
 of absence. H1 was rejected because its daily MDE was 174–314 pips against a
@@ -141,6 +158,11 @@ All of these manufacture *positive* results from no signal.
    spec 004's 08:00 JST entry by 0.24 pips - it paid hour 7 (0.600 pips, still
    decaying from the 06:00 rollover spike) instead of hour 8 (0.360). Fixed in
    `datasets._with_synthetic_ask`; `exec_lag` must track `quote_at`'s offset.
+   **This trap was documented before the fix was committed.** Spec 004's published
+   numbers came from a working tree that had the fix while the repo did not, so
+   until this commit the repo under-stated prefix returns by 0.230 pips a trade
+   and could not reproduce its own spec. If a result cannot be reproduced from a
+   clean clone, the result does not exist yet.
 7. **The spread profile is DST-smeared at JST hours 6-8.** The 17:00 NY rollover
    lands at 06:00 JST under EDT and 07:00 under EST. Japan has no DST, so Tokyo
    patterns are crisp and only the rollover moves. Specs 001/004 trade
@@ -177,15 +199,17 @@ All of these manufacture *positive* results from no signal.
 
 | Spec | Status | Note |
 |---|---|---|
-| 001 gotobi / Tokyo fix | **upheld** | mechanism confirmed by 004; restate as Gotobi-proper, excluding month-end |
+| 001 gotobi / Tokyo fix | **upheld, mechanism unconfirmed** | 004 showed B differs from C, which restates 001's own claim on a subset. Its A-vs-B separation was uninformative, so month-end is NOT ruled out as a contributor. Do not restate 001 as Gotobi-proper on 004's authority |
 | 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
-| 003 rate-path revision | **rejected** | well-powered null, max abs(t_hc) 1.80 vs 2.81 bar; right sign, too small |
-| 004 turn-of-month separation | **passed; tradeability undecidable** | B-vs-C different (t +3.04 / +2.62); separation itself underpowered |
+| 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | max abs(t_hc) 1.80 vs 2.81 bar, right sign at all 4 h. NOT a well-powered null: MDE SR is 0.97 against a 0.73 tradeability bar |
+| 004 turn-of-month separation | **undecidable** | Its declared test (A-vs-B) gave t -1.37 / +0.20 with MDE 2.3x the effect: unanswerable, not answered. Both legs sit below their own MDE. Numbers pending re-run on committed code |
 | 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.19/+0.47/-0.04 vs 3.0 bar. Financing alone took ~5 pips/trade |
 
 Eight signal families examined, six dead. Spec 004 is the only surviving effect:
 Gotobi-proper differs from control on cost-free mid prices, 6/6 sub-period cells
-positive, as-run Sharpe 0.74 - the first result here to clear the t=3 bar of 0.71.
+positive, as-run Sharpe 0.74 (prefix) against a t=3 bar of 0.71 - but that 0.74
+needs the exec-hour fix, which reached the repo only in this commit, and the
+effect of +2.068 pips is below its own MDE of 2.192 at the bar spec 004 declared.
 But it is 1.5-2.1 pips against a spread uncertainty of 0.36 measured versus 0.9-1.8
 plausible for 2007-2024, so **tradeability is blocked on spread provenance, not on
 statistics.** Under era-scaled spreads the Sharpe falls to 0.44, below detection.

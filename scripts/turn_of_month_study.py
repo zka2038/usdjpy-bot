@@ -30,6 +30,7 @@ from usdjpy.costs import CostModel, PESSIMISTIC  # noqa: E402
 from usdjpy.datasets import load_minute  # noqa: E402
 from usdjpy.dukascopy import load_minute_bars  # noqa: E402
 from usdjpy.events import PERIODS, compare, summarize, window_trades  # noqa: E402
+from scipy.stats import norm  # noqa: E402
 from usdjpy.stats import min_detectable_pips  # noqa: E402
 
 pd.set_option("display.width", 150, "display.float_format", "{:.3f}".format)
@@ -37,6 +38,10 @@ pd.set_option("display.width", 150, "display.float_format", "{:.3f}".format)
 # inherited from spec 001, NOT re-tuned
 RULES = {"prefix_long": ("08:00", "09:55", +1), "postfix_short": ("09:55", "11:00", -1)}
 BONF_T = 2.5   # pre-declared in spec 004: ~6 comparisons
+# min_detectable_pips defaults to alpha=0.05 (t=1.96), but the kill criterion is
+# |t| >= 2.5. An MDE computed at 1.96 understates the bar the effect actually has
+# to clear by 19%, which flatters every null in the output.
+BONF_ALPHA = 2 * (1 - norm.cdf(BONF_T))
 
 # Same loader switch as spec 001 (scripts/gotobi_study.py), so A/B/C run on identical bars.
 ap = argparse.ArgumentParser()
@@ -79,8 +84,8 @@ for rule, (t_in, t_out, side) in RULES.items():
             print(f"\n{name}: no trades")
             continue
         sd = tr["net_pips"].std()
-        mde = min_detectable_pips(sd, len(tr))
-        print(f"\n{name}  (n={len(tr)}, sd={sd:.1f} pips, MDE@80% = {mde:.1f} pips)")
+        mde = min_detectable_pips(sd, len(tr), alpha=BONF_ALPHA)
+        print(f"\n{name}  (n={len(tr)}, sd={sd:.1f} pips, MDE@80%@t{BONF_T} = {mde:.1f} pips)")
         print(summarize(tr, "net_pips"))
 
     pess = window_trades(bars, GROUPS["A_month_end"], t_in, t_out, side, PESSIMISTIC)
