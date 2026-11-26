@@ -76,8 +76,8 @@ linked, and reports every stage as untouched. Request counts (not just days):
    `specs/README.md` index), each saying which sample it quotes.
 3. ~~**Task 5, harness gaps**~~ **Done 2026-11-26.** What was built, the two
    `window_trades` defects fixed, the diff proof, the DFF fetch and BoJ stamp fix that
-   followed, and one open decision (spec 005's *Results* are stale on current code;
-   restate or not) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
+   followed, and the spec 005 restatement (on the user's decision, confirmed from a fresh
+   clone) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
 4. **Task 6, the volatility model:** HAR-RV on 5-minute realised vol, the
    minute-of-week vol profile, and vol-target sizing (specs 007, 017). Build it on
    `load_minute("combined")` and validate on synthetic data first.

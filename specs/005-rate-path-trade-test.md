@@ -8,7 +8,7 @@
 > passes. This spec instead simulates trades directly, with Newey–West errors on raw pips, under
 > its own kill criteria. It does **not** replace spec 003. Spec 003's parameters were fixed
 > before these results existed, so it can still be run as written, but it must not be changed
-> in response to anything here. The raw-pips slope diagnostic below (t +2.19) uses Newey–West
+> in response to anything here. The raw-pips slope diagnostic below (t +1.89) uses Newey–West
 > errors, which per the review's simulation keep the false-positive rate near nominal but give an
 > unstandardised test little power and weight it towards volatile periods. Treat it as
 > descriptive; spec 003's standardised regression is the proper test of that question.
@@ -94,37 +94,48 @@ Lookback n = 5 days (V1, V2); threshold 15bp (V2, from the quoted statistic); fa
 5 days; financing skim 2.0% (2.5% pessimistic). None will be tuned on this sample.
 
 ## Results
-Run 2026-11-24 with `python scripts/h3_rate_study.py` (combined data, 2007-01 to 2024-12,
-3,976 decision days with a quote and a spread). Files: `results/h3_summary.csv`,
+
+> **Restated 2026-11-26 on current code; the verdict is unchanged.** First run 2026-11-24
+> (`51980ab`), before three loader corrections: the exec-hour spread fix (`d541d7d`), the
+> HistData DST fix (`a1dfccb`) and the BoJ call-rate publication stamp (`bd66e20`). The first
+> run's table is in git history at `51980ab` and reproduces exactly with the first two undone;
+> its superseded headline values are in `HANDOFF.md` §4. The figures below reproduce from a
+> fresh clone of `research/remaining-work` with the data linked in: 95 tests pass and
+> `python scripts/h3_rate_study.py` prints them, with every output CSV byte-identical to the run
+> they were taken from (`HANDOFF-2026-11-25-during-fetch.md`, Task 5).
+
+Run with `python scripts/h3_rate_study.py` (combined data, 2007-01 to 2024-12,
+3,971 decision days with a quote and a spread). Files: `results/h3_summary.csv`,
 `results/h3_verdict.csv`, `results/h3_V{1,2,3}_trades.csv`, `results/h3_signals.csv`.
 
 | | V1 Change | V2 Big move | V3 Residual |
 |---|---|---|---|
-| Trades | 3,911 | 175 | 1,613 |
-| Share long | 51% | 50% | 63% |
-| Mean net pips, base | −0.73 | +7.16 | −0.54 |
-| Newey–West t, base | −0.19 | +0.47 | −0.04 |
-| Mean net pips, pessimistic | −2.38 | +5.42 | −3.26 |
-| 2022–2024 mean net pips | +12.32 | +20.71 | −39.02 |
-| Net minus drift, NW t | −0.22 | +0.48 | −0.21 |
-| Mean financing per trade | −5.10 | −6.56 | −10.33 |
+| Trades | 3,906 | 175 | 1,604 |
+| Share long | 51% | 50% | 62% |
+| Mean net pips, base | −0.95 | +3.66 | −0.83 |
+| Newey–West t, base | −0.24 | +0.23 | −0.06 |
+| Mean net pips, pessimistic | −2.59 | +1.90 | −3.55 |
+| 2022–2024 mean net pips | +10.87 | +13.63 | −41.31 |
+| Net minus drift, NW t | −0.27 | +0.24 | −0.23 |
+| Mean financing per trade | −5.10 | −6.74 | −10.35 |
 | Kill criteria failed | 1, 2, 4, 5 | 2, 4, 5 | all five |
 
 **Decision: all three variants rejected.** None comes close to the t ≥ 3.0 bar. Sub-periods
-flip sign (V1: +4.6 / −10.2 / +12.3; V3: +53.9 / −11.0 / −39.0 pips), which is what noise looks
+flip sign (V1: +4.7 / −10.1 / +10.9; V3: +53.9 / −10.8 / −41.3 pips), which is what noise looks
 like.
 
 Diagnostics (not kill criteria): regressing the raw 5-day mid move on the 5-day spread change
-gives +0.96 pips per bp, Newey–West t +2.19. So there is a faint same-direction drift, but it is
-small next to costs: financing alone (mostly IBKR's 2% skim) takes about 5 pips from every
-5-day trade. The 10-day move on V3's fair-value z has slope −6.67 pips per z, t −0.90: no
+gives +0.86 pips per bp, Newey–West t +1.89. So there is at most a faint same-direction drift,
+and it is small next to costs: financing alone (mostly IBKR's 2% skim) takes about 5 pips from
+every 5-day trade. The 10-day move on V3's fair-value z has slope −6.71 pips per z, t −0.90: no
 mean reversion to speak of. V2 fires mostly in rate-volatile regimes (2008: 33 events; 2022–24:
 83) and almost never at the zero bound (2010–2021: 33 events in 12 years).
 
 Data notes: decision days without a quote are skipped, not filled. That is 35–128 a year in
-2007–2014 (gaps in the Dukascopy mirror) and **62 in 2023: the HistData 2023 file is missing up
-to ~60% of minutes between 08:00 and 24:00 UTC from February to July**, contrary to
-`docs/DATA.md`. Before mid-2024 the ask is synthetic. Neither is large enough to change the decision.
+2007–2014 (gaps in the Dukascopy mirror) and **67 in 2023: the HistData 2023 file is missing up
+to ~60% of minutes between 08:00 and 24:00 UTC from February to July** (`docs/DATA.md`). The
+DST fix moved 2023 bars, which is why this was 62 in the first run. Before mid-2024 the ask is
+synthetic. Neither is large enough to change the decision.
 
 Not tried, and not to be tried on this sample without a new spec: other lookbacks, thresholds,
 holding periods or decision times; futures (6J/MJY) instead of spot, which would avoid the

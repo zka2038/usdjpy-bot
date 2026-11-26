@@ -320,8 +320,14 @@ had been viewed when it was made.
 >   exec-hour spread fix both undone. Spec 005 was committed (`51980ab`) before either.
 >   On current code: 3,971 days; V1 −0.95 t −0.24, V2 +3.66 t +0.23, V3 −0.83 t −0.06;
 >   slope +0.86 at **t +1.89**. The verdict is unchanged (every t far below 3.0). But
->   `CLAUDE.md` quotes 005's slope as t +2.19, and the spec's table is stale. **Restating
->   spec 005 is the user's decision; not done.**
+>   `CLAUDE.md` quoted 005's slope as t +2.19, and the spec's table was stale.
+> - **Spec 005 restated 2026-11-26 on the user's decision.** Verified first: a fresh clone of
+>   `research/remaining-work` at `bd66e20` (data linked, `tokyo_hours` not) passed 95 tests,
+>   and its `h3_rate_study.py` stdout and all 6 result CSVs were byte-identical to the run
+>   above. The spec's *Results*, `Research/Strategy/H3 Rate Path Trade Test.md` (its derived
+>   figures, from a script that first reproduced the first version's figures on the
+>   first-run code), `CLAUDE.md` and `HANDOFF.md` §1 were then rewritten from that clone's
+>   output; superseded values are in `HANDOFF.md` §4.
 > - `horizon.simulate` (spec 005) charges financing on fractional calendar days, while the
 >   new code charges per roll. The two agree on its whole-day holds. Left alone.
 > - Commission is priced at the fill in `window_trades` and at mid in the simulator: a

@@ -16,7 +16,7 @@ the next action, and the mistakes made getting here so they are not repeated.
 | 002 intervention disclosure | **rejected** | Real effect (−0.172 to −0.269 yen, robustness-tested) but 1.3 episodes/yr, Sharpe 0.24–0.43. Risk overlay only. |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | Max abs(t_hc) 1.80 vs the 2.81 bar, right sign at all four horizons. The "well-powered null" label was wrong: MDE Sharpe is 0.97 against a 0.73 tradeability bar. |
 | 004 turn-of-month separation | **B beats zero and unmatched control; Gotobi specificity not established; separation unanswerable** | DST-corrected. Net vs zero t +3.47 / +3.34. B vs C t +3.28 / +2.80 unmatched, **+1.91 / +2.28 weekday-matched** (B is 44% Fridays). Declared A-vs-B t -1.39 / +0.21, uninformative. Criterion 4 passes; 5 pending the measured spread. |
-| 005 rate-path trade test | **rejected** | Independent H3 retest built in the CLI without `CLAUDE.md`. Three variants, NW t −0.19 / +0.47 / −0.04 against a 3.0 bar, sub-periods flipping sign. Correctly declares itself descriptive and defers to 003. |
+| 005 rate-path trade test | **rejected** | Independent H3 retest built in the CLI without `CLAUDE.md`. Three variants, NW t −0.24 / +0.23 / −0.06 against a 3.0 bar (restated 2026-11-26), sub-periods flipping sign. Correctly declares itself descriptive and defers to 003. |
 
 Four families died to literature (trend, calendar-as-signal, carry, risk
 appetite). Two died to calibration (H2a year-end, H1's daily test). One died to
@@ -165,6 +165,7 @@ in each line is right.
 | trial headroom | three (passes to N=8) | **about five** (N=5 specs; limits N=10–17 prefix, N=11 postfix) |
 | holdout power | 14% | **16%** (SE 2.355 vs +2.301) |
 | spec 004 day counts | A 234, B 1159, month-end 17% | **216 / 1075, 16.7%** pre-holdout (the old counts ran into 2026) |
+| spec 005 headline (first run, 2026-11-24) | 3,976 days; −0.73 / +7.16 / −0.54 pips, NW t −0.19 / +0.47 / −0.04; slope +0.96 t +2.19; V2 long t 1.91 | **3,971 days; −0.95 / +3.66 / −0.83, t −0.24 / +0.23 / −0.06; slope +0.86 t +1.89; V2 long t 1.70.** Ran before the exec-hour, HistData DST and BoJ-stamp fixes; verdict unchanged. Restated 2026-11-26, confirmed from a fresh clone |
 
 Seven of these were caught by computing something rather than reasoning about it.
 Two were caught by the CLI session and were both invisible-failure modes: a

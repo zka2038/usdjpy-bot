@@ -62,8 +62,9 @@ Positions are as of **Tuesday**, released **Friday 15:30 ET**. Use `available_fr
 `fredgraph.csv` through `fetch_official.fred()` restricted to those two series; DFF 1954-07-01 →
 2026-11-24, DGS2 1976-06-01 → 2026-11-24; SHA-256 `a2559174…eba5`). Loaders `rates.fed_funds()` and
 `rates.us_2y()`. FRED DGS2 equals the Treasury-sourced `dgs2.csv` on all 5,478 shared days. With it,
-spec 005's published *Results* reproduce exactly once the two later loader fixes are undone (HistData
-DST, exec-hour spread), so this vintage is the one spec 005 ran on. The full `fetch_official.py` run
+spec 005's first-run results (`51980ab`) reproduce exactly once the two later loader fixes are undone
+(HistData DST, exec-hour spread), so this vintage is the one spec 005 first ran on; its restated
+*Results* come from this file on current code. The full `fetch_official.py` run
 (SOFR, VIX, SP500, the other FRED series, MOF, CFTC) has not been done and would overwrite this file
 with more columns. Rows from 2025 are holdout: on disk is not use; the loaders' consumers enforce it.
 

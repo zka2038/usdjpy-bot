@@ -267,7 +267,7 @@ All of these manufacture *positive* results from no signal.
 | 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | max abs(t_hc) 1.80 vs 2.81 bar, right sign at all 4 h. NOT a well-powered null: MDE SR is 0.97 against a 0.73 tradeability bar |
 | 004 turn-of-month separation | **B beats zero and unmatched control; Gotobi-specific effect not established; separation unanswerable** | DST-corrected. B net of base costs vs zero: prefix +2.301p t +3.47, postfix +1.683p t +3.34. B vs unmatched C (mid): t +3.28 / +2.80; **vs weekday-matched C: t +1.91 / +2.28, below 2.5**. A-vs-B t -1.39 / +0.21, MDE ~2x the effect: month-end not ruled out. Kill criterion 4 passes; 5 pending the measured spread (gap fill running) |
-| 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.19/+0.47/-0.04 vs 3.0 bar. Financing alone took ~5 pips/trade |
+| 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.24/+0.23/-0.06 vs 3.0 bar (restated 2026-11-26 on current loaders). Financing alone took ~5 pips/trade |
 
 Eight signal families examined, six dead. Spec 004 is the only surviving effect,
 and the 2026-11-25 review narrowed it. On DST-corrected bars, B (Gotobi-proper)
@@ -292,7 +292,7 @@ test, is pre-declared in spec 004 *Gap fill*; no filled data has been viewed.
 
 Specs 003 and 005 test H3 independently, by different methods, and both reject it.
 005 defers to 003's standardised regression as the proper test and keeps its own
-raw-pips slope (t +2.19) as descriptive only. Neither supersedes the other.
+raw-pips slope (t +1.89) as descriptive only. Neither supersedes the other.
 
 The binding constraint is no longer method, and no longer purely hypothesis count -
 it is that the one surviving effect is the same size as a cost not yet measured,

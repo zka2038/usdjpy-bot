@@ -10,20 +10,27 @@
 > written, but it must not be changed in response to anything below. No holdout data
 > (2025-01-01 onward) was used: trades whose exit falls in 2025 were dropped.
 
+> **Restated 2026-11-26 on current code**, with spec 005's *Results*: the exec-hour spread fix,
+> the HistData DST fix and the BoJ call-rate stamp all postdate the first run. Every figure
+> below was recomputed from a fresh clone's own run. The script that derives them first
+> reproduced every figure of the first version (`51980ab`) on that version's code, so the
+> definitions are unchanged. What moved: V2's long side weakened (t 1.91 → 1.70), and V2 no
+> longer "hinges on a few trades" in the same way (§2). The verdicts did not change.
+
 ## 1. Verdict
 
 Three variants, each pre-declared in spec 005 with its own kill criteria (Newey–West t ≥ 3.0
 with lag = holding period, positive under base and pessimistic costs, positive in 2022–24,
-beats drift). Sample 2007-01 to 2024-12 on the combined seeded 1-minute data, 3,976 decision
+beats drift). Sample 2007-01 to 2024-12 on the combined seeded 1-minute data, 3,971 decision
 days at 00:00 UTC with a quote and a spread.
 
 | | V1 Change | V2 Big move | V3 Residual |
 |---|---|---|---|
 | Rule | sign of 5-day spread change, hold 5 days, daily | same, only when \|change\| ≥ 15bp, hold 5 days, one at a time | fade \|z\| ≥ 1 from a 252-day fair-value fit, hold 10 days |
-| Trades | 3,911 | 175 | 1,613 |
-| Mean net pips, base | −0.73 | +7.16 | −0.54 |
-| Newey–West t | −0.19 | +0.47 | −0.04 |
-| 2007–14 / 2015–21 / 2022–24 | +4.6 / −10.2 / +12.3 | −22.5 / +37.0 / +20.7 | +53.9 / −11.0 / −39.0 |
+| Trades | 3,906 | 175 | 1,604 |
+| Mean net pips, base | −0.95 | +3.66 | −0.83 |
+| Newey–West t | −0.24 | +0.23 | −0.06 |
+| 2007–14 / 2015–21 / 2022–24 | +4.7 / −10.1 / +10.9 | −22.5 / +36.0 / +13.6 | +53.9 / −10.8 / −41.3 |
 | Kill criteria failed | 1, 2, 4, 5 | 2, 4, 5 | all five |
 
 None comes near t = 3. Sub-periods flip sign, which is what noise looks like. Financing, not
@@ -40,7 +47,7 @@ every ≥15bp compression USDJPY fell, by 3.92% on average (Investing.com, no sa
 **Rules.** At 00:00 UTC each weekday, spread = US 2y − JGB 2y using only values published
 before that moment (normally the previous day's closes). If it moved ≥15bp versus five decision
 days earlier, trade in that direction for five decision days. While a trade is open, new
-signals are ignored, so 449 qualifying days produced 175 trades.
+signals are ignored, so 445 qualifying days produced 175 trades.
 
 **It fires in rate-volatile regimes.** The median weekly |change| is 4.5bp; ≥15bp is roughly
 the 90th percentile. 33 trades in 2008 and 83 in 2022–24, but 33 in the twelve years 2010–2021.
@@ -50,18 +57,19 @@ the 90th percentile. 33 trades in 2008 and 83 in 2022–24, but 33 in the twelve
 | | All | Long (spread widened) | Short (spread narrowed) |
 |---|---|---|---|
 | Trades | 175 | 87 | 88 |
-| Mean net pips | +7.2 | +38.0 | −23.4 |
-| Newey–West t | 0.47 | 1.91 | −1.19 |
+| Mean net pips | +3.7 | +35.3 | −27.6 |
+| Newey–West t | 0.23 | 1.70 | −1.39 |
 | Hit rate | 54% | 69% | 39% |
-| Financing per trade | −6.6 | +1.0 | −14.1 |
+| Financing per trade | −6.7 | +1.1 | −14.5 |
 
 **The cited statistic does not replicate.** After the 88 compressions of ≥15bp, USDJPY fell over
-the next five days only 41% of the time, and rose 0.08% on average (median +0.46%).
+the next five days only 41% of the time, and rose 0.11% on average (median +0.45%).
 
-**Results hinge on a few trades.** Per-trade standard deviation is 204 pips against a mean of 7.
-The five largest trades by size contribute 674 of the 1,253 total pips; without them the mean is
-+3.4, t 0.24. The single biggest winner was a short on 2024-07-29 at 154.15, closed at 09:00 JST
-on 2024-08-05 in the carry unwind, +833 pips.
+**A few trades dominate.** Per-trade standard deviation is 209 pips against a mean of 3.7. The
+five largest trades by size net to −234 of the +641 total pips; without them the mean is +5.1,
+t 0.35. (In the first run they contributed +674 of +1,253, and removing them lowered the mean,
+so the direction of this dependence is itself fragile.) The single biggest winner was a short on
+2024-07-29 at 154.15, closed at 09:00 JST on 2024-08-05 in the carry unwind, +833 pips.
 
 ## 3. Costs of the long trades
 
@@ -69,22 +77,22 @@ Average per V2 long trade (87 trades, about 8 calendar days held, average price 
 
 | Item | Pips |
 |---|---|
-| USDJPY mid move | +38.08 |
-| Spread (buy ask, sell bid) | −0.37 |
+| USDJPY mid move | +35.26 |
+| Spread (buy ask, sell bid) | −0.33 |
 | Commission (IBKR $2 minimum per side on $100k) | −0.49 |
 | Slippage (0.1 per side) | −0.20 |
-| Carry earned (US–Japan short-rate gap, 2.13% on average) | +6.38 |
-| IBKR financing skim (2% a year) | −5.37 |
-| **Net** | **+38.03** |
+| Carry earned (US–Japan short-rate gap, 2.13% on average) | +6.48 |
+| IBKR financing skim (2% a year) | −5.42 |
+| **Net** | **+35.30** |
 
 | Period | Trades | Rate gap | Financing net | Trading costs |
 |---|---|---|---|---|
-| 2007–2014 | 30 | 1.38% | −1.64 | −0.97 |
-| 2015–2021 | 12 | 0.83% | −2.60 | −1.01 |
-| 2022–2024 | 45 | 2.99% | +3.73 | −1.12 |
+| 2007–2014 | 30 | 1.38% | −1.64 | −0.93 |
+| 2015–2021 | 12 | 0.83% | −2.60 | −0.97 |
+| 2022–2024 | 45 | 2.99% | +3.85 | −1.09 |
 
 Carry only beats the skim when the short-rate gap is above about 2%. Shorts pay the carry on
-top of the skim, which is where their −14.1 pips of financing comes from, so part of the
+top of the skim, which is where their −14.5 pips of financing comes from, so part of the
 long/short gap is a cost effect rather than better prediction on one side. Pessimistic costs
 (0.3 slippage per side, 2.5% skim) take about 1.8 more pips per trade. Before mid-2024 the ask is
 synthetic (bid plus a typical 2024–26 Eightcap spread, ~0.33 pips at 09:00 JST), so true
@@ -92,32 +100,34 @@ historical spreads were probably wider, though not by enough to matter next to �
 
 ## 4. Why the long side is not evidence yet
 
-1. **The range of plausible results includes zero.** Mean +38.0, Newey–West standard error 19.9:
-   95% interval −1 to +77 pips per trade.
+1. **The range of plausible results includes zero.** Mean +35.3, Newey–West standard error 20.7:
+   95% interval −5 to +76 pips per trade.
 2. **The profit sits in one trending period.**
 
    | Period | Long trades | Mean mid move | Average 5-day move on any day |
    |---|---|---|---|
    | 2007–2014 | 30 | −4.9 | +0.2 |
    | 2015–2021 | 12 | +69.8 | −1.0 |
-   | 2022–2024 | 45 | +58.3 | +29.3 |
+   | 2022–2024 | 45 | +52.9 | +29.5 |
 
    Nothing in the first eight years. Over half the trades are in 2022–24, when USDJPY rose about
-   29 pips every five days regardless of signal, so roughly half that period's gain is drift.
+   30 pips every five days regardless of signal, so more than half that period's gain is drift.
    2015–21 has only 12 trades.
 3. **It was found by splitting results after seeing them.** "Long only" is a fourth variant chosen
-   in hindsight. Its t of 1.91 is below even spec 001's bar, and well below the survey's 3.0.
+   in hindsight. Its t of 1.70 is below even spec 001's bar, and well below the survey's 3.0.
 4. **Even if real, it is thin.** About 5 trades a year; worst trade −624 pips; worst drawdown
-   −1,162 pips against +3,309 total over 18 years. Per-year return-to-risk about 0.42 before the
-   survey's backtest-to-live haircut (median −73%), so about 0.1 after it.
+   −1,161 pips against +3,071 total over 18 years. Per-year return-to-risk (per-trade Sharpe ×
+   √trades a year) about 0.38 before the survey's backtest-to-live haircut (median −73%), so
+   about 0.1 after it.
 
 ## 5. Data notes
 
 - Decision days without a quote within 5 minutes are skipped, not filled: 35–128 a year in
   2007–2014 (gaps in the Dukascopy mirror).
 - **HistData 2023 is incomplete.** February to July is missing up to ~60% of minutes between 08:00
-  and 24:00 UTC, contrary to `docs/DATA.md`, which calls the file complete. H3 lost 62 decision
-  days in 2023. Spec 001's 1a rule enters at 23:00 UTC and also loses some 2023 days.
+  and 24:00 UTC (`docs/DATA.md`, corrected 2026-11-25; it had called the file complete). H3 loses
+  67 decision days in 2023 (62 in the first run, before the DST fix moved bars). Spec 001's 1a
+  rule enters at 23:00 UTC and also loses some 2023 days.
 - FRED `DGS2` and `DFF` came from `scripts/fetch_official.py` (`data/official/fred_daily.csv`).
   US yields are stamped as published at 18:00 New York time, JGB yields at 18:00 JST; tests in
   `tests/test_h3.py` check that no value is used before it was public.
@@ -130,6 +140,6 @@ historical spreads were probably wider, though not by enough to matter next to �
   5 days") and test it on data it has never touched. Pre-2007 is the clean option: `DGS2` runs
   from 1976, the MOF JGB file from 1974, and `fetch_official.py --histdata` fetches HistData 1-min
   from 2000. The 2025+ holdout would give only about 10 trades and spend the holdout.
-- Fix the 2023 completeness claim in `docs/DATA.md`.
+- ~~Fix the 2023 completeness claim in `docs/DATA.md`.~~ Done 2026-11-25.
 - Deflated Sharpe ratio and probability of backtest overfitting were not computed; any variant
   that later passes needs both (`stats.deflated_sharpe`).
