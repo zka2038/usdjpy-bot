@@ -8,7 +8,7 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 
 | # | Spec | Priority tier / author | Horizon | Data ready? | Status |
 |---|---|---|---|---|---|
-| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld; mechanism unconfirmed (004's A-vs-B was uninformative, and its weekday-matched B vs C is below 2.5) |
+| 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld, both rules; mechanism unconfirmed (004's A-vs-B was uninformative, and its weekday-matched B vs C is below 2.5). Results recorded 2026-11-26 |
 | 002 | [MOF/BoJ intervention disclosure](002-intervention-disclosure.md) | bzk | — | — | rejected |
 | 003 | [Rate-path revision](003-rate-path-revision.md) | bzk | — | — | rejected below SR 0.73; undecidable 0.73–0.98 |
 | 004 | [Turn-of-month separation](004-turn-of-month-separation.md) | bzk | — | — | B differs from unmatched control (t +3.28 / +2.80) but not from weekday-matched control (t +1.91 / +2.28, below 2.5): Gotobi-specific effect not established (2026-11-25 review); separation unanswerable; criterion 4 passes, 5 pending the measured spread; gap fill and matched test declared (see *Dukascopy fetch*) |
@@ -41,13 +41,18 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
   BoJ 2007–09 dates. Run `scripts/fetch_official.py` (DGS2, DFF, SP500, …) and `scripts/download.py`
   (bars after 2026-06-05; holdout use only).
 - **Harness gaps found while writing the specs:**
-  - `datasets.load_minute` returns bar close only, but stops need bid high/low.
-  - `events.window_trades` rolls the exit at most one day and has one timezone, so it needs a
-    timestamp-based helper for multi-day or ET-anchored holds.
+  *All closed 2026-11-26 (Task 5); what was built, and the defects found on the way, are in
+  `HANDOFF-2026-11-25-during-fetch.md` Task 5.*
+  - ~~`datasets.load_minute` returns bar close only, but stops need bid high/low.~~ `load_minute(..., ohlc=True)`.
+  - ~~`events.window_trades` rolls the exit at most one day and has one timezone, so it needs a
+    timestamp-based helper for multi-day or ET-anchored holds.~~ `events.timestamp_trades` + `events.at_local`.
   - ~~`costs.py` has no overnight financing.~~ Stale: `CostModel.financing_pips` exists (corrected 2026-11-25).
-  - `summarize()` periods don't match the 2015–19/2020–24 split.
-  - There is no weekly portfolio simulator (needed for 014/016/017).
-  - There is no loader for the H.10 daily or the BoJ call-rate files.
+    Since 2026-11-26 both trade helpers charge it per 17:00 New York roll and refuse to run without rates.
+  - ~~`summarize()` periods don't match the 2015–19/2020–24 split.~~ `summarize(..., periods=PERIODS_2015_2024)`.
+  - ~~There is no weekly portfolio simulator (needed for 014/016/017).~~ `src/usdjpy/portfolio.py`.
+  - ~~There is no loader for the H.10 daily or the BoJ call-rate files.~~ `datasets.h10_daily()`; the BoJ
+    loader already existed as `rates.boj_call_rate()` (its publication stamp corrected 2026-11-26).
+    The USD short rate (`DFF`) for `rates.fed_funds()` was fetched 2026-11-26 (`docs/DATA.md`).
   - ~~Verify HistData UTC alignment in US summer.~~ **Settled 2026-11-25, and restated.** US summer itself
     is aligned (every full EDT and EST month at offset 0 against Dukascopy and Eightcap). The real fault was
     narrower: from 2019 HistData's raw clock changes on **EU** DST dates, so in the weeks where US and EU

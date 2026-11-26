@@ -25,16 +25,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .stats import ewma_variance_past
+
 
 def ewma_vol(returns: pd.Series, lam: float = 0.94) -> pd.Series:
-    """EWMA conditional volatility, using only information up to t-1 at each point."""
+    """EWMA conditional volatility at each t from returns up to t-1 only (NaN at the first
+    point). Seeded from past returns alone since 2026-11-26; see `stats.ewma_variance_past`."""
     r = returns.astype(float)
-    v = np.empty(len(r))
-    v[0] = r.var()
-    rv = r.values
-    for t in range(1, len(r)):
-        v[t] = lam * v[t - 1] + (1 - lam) * rv[t - 1] ** 2
-    return pd.Series(np.sqrt(v), index=r.index, name="vol")
+    return pd.Series(np.sqrt(ewma_variance_past(r.to_numpy(), lam)), index=r.index, name="vol")
 
 
 def expanding_z(s: pd.Series, min_obs: int = 252) -> pd.Series:

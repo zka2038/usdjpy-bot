@@ -138,18 +138,42 @@ def variance_ratio(r, q: int) -> tuple[float, float]:
 
 # --------------------------------------------------------------------- Hurst
 
-def ewma_standardise(r, lam: float = 0.94) -> np.ndarray:
-    """Divide by EWMA conditional vol. Required before any Hurst estimate.
+EWMA_BURN = 20
 
-    On raw GARCH returns DFA has a bias of -0.099 against a truth of 0.5;
-    standardising cuts that to -0.004 and the spread by about 4x.
+
+def ewma_variance_past(r, lam: float = 0.94, burn: int = EWMA_BURN) -> np.ndarray:
+    """EWMA conditional variance at each t from returns r[0..t-1] ONLY.
+
+    v[0] is NaN (nothing is known). For 1 <= t <= burn, v[t] is the mean of the t past
+    squared returns; after that, v[t] = lam * v[t-1] + (1 - lam) * r[t-1]^2.
+    The one implementation behind `signals.ewma_vol` and `ewma_standardise`. Until
+    2026-11-26 both seeded v[0] with the variance of the WHOLE series, future included:
+    in spec 003 that was 2007-2024 daily returns scaling January 2007 (sd 0.00639
+    against 0.00320 from the first 20 days), off by >1% for 49 trading days. Fixed on
+    the user's decision; spec 003 was restated with it (HANDOFF-2026-11-26-remaining.md).
     """
     r = np.asarray(r, float)
-    v = np.empty(len(r))
-    v[0] = r.var()
+    v = np.full(len(r), np.nan)
     for t in range(1, len(r)):
-        v[t] = lam * v[t - 1] + (1 - lam) * r[t - 1] ** 2
-    s = r / np.sqrt(v)
+        v[t] = np.mean(r[:t] ** 2) if t <= burn else lam * v[t - 1] + (1 - lam) * r[t - 1] ** 2
+    return v
+
+
+def ewma_standardise(r, lam: float = 0.94) -> np.ndarray:
+    """Divide by EWMA conditional vol, then demean. Required before any Hurst estimate.
+
+    Each r[t] is divided by the vol known before it (`ewma_variance_past`), so r[0],
+    which has none, is dropped: the result has len(r) - 1 values. The final demeaning
+    uses the whole series, which is harmless for DFA (a whole-sample statistic that
+    removes the mean anyway) but means the output is not a real-time series.
+
+    On raw GARCH returns DFA has a bias of -0.099 against a truth of 0.5;
+    standardising cut that to -0.004 and the spread by about 4x (measured with the
+    earlier full-sample seed, which differs only in the first weeks).
+    """
+    r = np.asarray(r, float)
+    v = ewma_variance_past(r, lam)
+    s = r[1:] / np.sqrt(v[1:])
     return s - s.mean()
 
 

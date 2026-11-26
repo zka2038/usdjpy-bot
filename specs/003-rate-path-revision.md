@@ -63,7 +63,8 @@ session of the same date.
 - `raw_signal_t = spread_t − spread_{t−n}`, with **n = 5 business days** (one value,
   pre-declared, not searched)
 - `vol_t` = EWMA conditional volatility of USDJPY daily log returns, λ = 0.94
-  (`stats.ewma_standardise` convention)
+  (`stats.ewma_standardise` convention; seeded from past returns only since 2026-11-26,
+  `stats.ewma_variance_past`)
 - `signal_t = (raw_signal_t / sd_n(raw_signal)) / (vol_t / mean(vol))`, then
   z-scored over an expanding window using data up to *t* only
 
@@ -131,17 +132,30 @@ means the vol-standardisation was unnecessary, and a large ratio on the
 
 ## Results — rejected
 
-Run 2026-11-25, `datasets.load_minute("combined")`, pre-holdout, n = 4,211
-business days at h=1 (16.7 years).
+> **Restated 2026-11-26 on current code; the verdict is unchanged.** First run
+> 2026-11-25 (table committed in `f35dfb3`), before three changes: the exec-hour spread
+> fix (`d541d7d`; the first table predates it, though the MDE paragraph below was
+> computed after it), the HistData DST fix (`a1dfccb`), and, on the user's decision, a
+> past-only seed for `signals.ewma_vol` (`2ecd0c6`), which had started its recursion
+> from the variance of the whole 2007-2024 series. The first table reproduces exactly
+> with the first two undone and the old seed; the seed alone moves t by at most 0.01.
+> Superseded values: `HANDOFF.md` §4. The figures below reproduce from a fresh clone of
+> `research/remaining-work` at `2ecd0c6` with the data linked in: 128 tests pass and
+> `python scripts/rate_path_study.py --data` prints them, its CSV byte-identical to the run
+> they were taken from (`HANDOFF-2026-11-26-remaining.md` §3 item 5).
+
+Run with `datasets.load_minute("combined")`, pre-holdout, n = 4,211 business days at
+h=1 (16.7 years). MDE SR is the corrected one (SE(ρ) = se_ratio/√n, at the t = 2.81 bar);
+the first table printed 0.89 throughout, from 1/√n.
 
 | h | n | std t_hc | SE ratio | raw rho | SR est | MDE SR | verdict |
 |---|---|---|---|---|---|---|---|
-| 1 | 4211 | +1.80 | 1.09 | +0.0253 | 0.40 | 0.89 | null |
-| 3 | 1403 | +1.17 | 1.11 | +0.0437 | 0.40 | 0.89 | null |
-| 5 | 842 | +0.81 | 1.09 | +0.0318 | 0.23 | 0.89 | null |
-| 10 | 421 | +0.95 | 1.13 | +0.0431 | 0.22 | 0.89 | null |
+| 1 | 4211 | +1.78 | 1.10 | +0.0259 | 0.41 | 0.98 | null |
+| 3 | 1403 | +1.15 | 1.11 | +0.0441 | 0.40 | 0.99 | null |
+| 5 | 842 | +0.75 | 1.11 | +0.0314 | 0.22 | 0.99 | null |
+| 10 | 421 | +0.88 | 1.15 | +0.0413 | 0.21 | 1.02 | null |
 
-Kill criterion 1 fires at every horizon (max |t_hc| 1.80 vs the 2.81 Bonferroni
+Kill criterion 1 fires at every horizon (max |t_hc| 1.78 vs the 2.81 Bonferroni
 bar). Criterion 4 fires independently: every SR point estimate is below the
 tradeability bar even ignoring significance.
 
@@ -154,18 +168,18 @@ content at multi-quarter rather than daily horizons.
 "simulation gives 86% power at ρ=0.05, so this is not H1's uninformative null".
 That power figure comes from `synthetic_check`, and the harness is not calibrated
 to this sample: it recovered true ρ=0.030 at `t_hc` +5.78, while the real data
-gives ρ=0.0303 at +1.80. Same correlation, t 3.2× smaller, because USDJPY's
+gives ρ=0.0302 at +1.78. Same correlation, t 3.2× smaller, because USDJPY's
 errors are far worse behaved than the synthetic DGP's. Recovery proves the code
 works; it does not transfer power to the real sample.
 
 The sample's own MDE is the number that counts, and it contradicts the claim —
 see the blind-spot paragraph below, which was in this section all along and which
 "well-powered" directly contradicts. Carrying the HC inflation through
-(SE(ρ) = se_ratio/√n, not 1/√n) raises MDE ρ from 0.0563 to **0.0613** at h=1,
-i.e. MDE Sharpe **0.97**, not 0.89. Observed MDE/ρ is 2.0× at h=1 rising to 4.5×
+(SE(ρ) = se_ratio/√n, not 1/√n) raises MDE ρ from 0.0563 to **0.0620** at h=1,
+i.e. MDE Sharpe **0.98**, not 0.89. Observed MDE/ρ is 2.0× at h=1 rising to 4.9×
 at h=5: the test cannot see effects of the size present.
 
-**The SE ratio came back at 1.00–1.13, not the predicted 5–7.** That is *not*
+**The SE ratio came back at 1.02–1.15, not the predicted 5–7.** That is *not*
 evidence the heteroskedasticity problem is absent: `rate_path_signal()` already
 divides the spread change by `fx_vol` before z-scoring, so the correction was
 applied one step upstream of the regression. Simulated, an unscaled signal gives
@@ -179,9 +193,9 @@ scaling, the "raw" column is not a fixed-notional specification, so
 verdict is unaffected (all null) but the sizing column is mislabelled. Fix:
 compute ρ once against the unscaled spread change.
 
-**Blind spot to record.** MDE Sharpe is **0.97** (0.89 before the HC correction
+**Blind spot to record.** MDE Sharpe is **0.98** (0.89 before the HC correction
 above) while the tradeability bar is 0.73 (3/√16.7 for the actual span, not the
-0.67 the script used). Effects implying a Sharpe between 0.73 and 0.97 were
+0.67 the script used). Effects implying a Sharpe between 0.73 and 0.98 were
 **tradeable but undetectable** here.
 A null does not rule them out. The gap exists because testing four horizons
 pushes the Bonferroni detection bar above the economic one.

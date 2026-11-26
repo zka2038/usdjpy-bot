@@ -267,7 +267,71 @@ had been viewed when it was made.
   newer `CLAUDE.md` *Current state* says explicitly not to on 004's authority. Flag
   the contradiction to the user and change neither.
 
-### Task 5: harness gaps the triage lists
+### Task 5: harness gaps the triage lists — **DONE 2026-11-26**
+
+> **Status:** built and tested on synthetic data (`tests/test_harness.py`, 32 tests; 94
+> pass in all). No strategy was run.
+> 1. `datasets.load_minute(source, ohlc=True)` appends `bid_open`, `bid_high`,
+>    `bid_low` for every source, shifted with the close by the HistData DST fix. Default
+>    off, so no caller's frame changes. On the real files the plain columns are identical
+>    with and without it, and there are 0 bars with high < max(open, close),
+>    low > min(open, close) or NaN in any source. No source has ask extremes.
+> 2. `events.PERIODS_2015_2024` and `summarize(..., periods=)`; the default is unchanged.
+> 3. `events.timestamp_trades` (explicit UTC entry/exit, side per trade) and
+>    `events.at_local` (date + offset + local clock time, so "16:50 ET on T+3" holds across
+>    DST). It shares one pricing core with `window_trades`, which adds three trailing
+>    columns: `nights` (17:00 New York rolls held, `costs.roll_times`), `financing_pips`
+>    (per roll, at the rates published before it) and `mae_pips` (needs `ohlc=True`).
+> 4. `src/usdjpy/portfolio.py`: carried positions on any UTC schedule, the spec 014
+>    threshold rule, nightly financing, `CostModel` costs (a flat round trip costs exactly
+>    what `window_trades` charges), holdout stop, `apply_multiplier`/`on_schedule` for spec
+>    017, `quotes_from_mid` for the H.10 version, and `summary` (Sharpe, skew, max
+>    drawdown, worst period, CVaR 5%, return/max drawdown).
+> 5. `datasets.h10_daily()`; `histdata_alignment_check.py` now reads through it.
+>
+> **Defects fixed on the way:**
+> - `window_trades` checked the holdout on the entry date only, so a window rolling past
+>   New Year 2025 read holdout bars. Exits on or after `HOLDOUT_START` 00:00 UTC are now
+>   skipped too.
+> - `window_trades` charged no financing on windows held through 17:00 New York (specs
+>   008 C, 012 A). Both helpers now charge it, and raise if such a trade has no rates.
+>
+> **Behaviour preserved, by diff** against a clean export of `0dd3c9d`:
+> `turn_of_month_study.py`, `gotobi_study.py` and `histdata_alignment_check.py` give
+> identical stdout. Every original trade column is text-identical in all 8 trade CSVs
+> (7,786 rows); the new columns are all 0 / 0.0 / NaN, since specs 001 and 004 hold no night.
+> All 9 alignment CSVs are byte-identical. The clean export also reproduced the shared
+> `results/004_*.csv` byte for byte.
+>
+> **Put to the user, then settled 2026-11-26:**
+> - **USD short rate: fetched** on the user's go-ahead. `data/official/fred_daily.csv` now
+>   holds FRED DFF and DGS2 (only those two; provenance in `docs/DATA.md`). DGS2 came too
+>   because spec 005, the BoJ loader's only consumer, cannot run without it.
+> - **BoJ call-rate stamp: fixed**, after measuring it. It is now 10:00 JST on the first
+>   JP business day of the next month, when the month's last final daily print appears;
+>   the old stamp was 1 h (median) to 145 h early. On spec 005 the largest change in any
+>   printed figure is 0.001 (V1 t −0.240 → −0.241, V3 mean −0.825 → −0.826), with financing
+>   and both diagnostics unchanged at 2 dp. It cannot touch spec 004, which holds no night.
+>   It is fixed because the Task 5 financing code makes this loader the JPY leg of every
+>   overnight spec. Known-answer test in `tests/test_h3.py`.
+> - **Found while measuring it: spec 005's published *Results* do not reproduce on
+>   current code.** They reproduce exactly (3,976 days; −0.73 / +7.16 / −0.54 pips; t
+>   −0.19 / +0.47 / −0.04; slope +0.96 at t +2.19) only with the HistData DST fix and the
+>   exec-hour spread fix both undone. Spec 005 was committed (`51980ab`) before either.
+>   On current code: 3,971 days; V1 −0.95 t −0.24, V2 +3.66 t +0.23, V3 −0.83 t −0.06;
+>   slope +0.86 at **t +1.89**. The verdict is unchanged (every t far below 3.0). But
+>   `CLAUDE.md` quoted 005's slope as t +2.19, and the spec's table was stale.
+> - **Spec 005 restated 2026-11-26 on the user's decision.** Verified first: a fresh clone of
+>   `research/remaining-work` at `bd66e20` (data linked, `tokyo_hours` not) passed 95 tests,
+>   and its `h3_rate_study.py` stdout and all 6 result CSVs were byte-identical to the run
+>   above. The spec's *Results*, `Research/Strategy/H3 Rate Path Trade Test.md` (its derived
+>   figures, from a script that first reproduced the first version's figures on the
+>   first-run code), `CLAUDE.md` and `HANDOFF.md` §1 were then rewritten from that clone's
+>   output; superseded values are in `HANDOFF.md` §4.
+> - `horizon.simulate` (spec 005) charges financing on fractional calendar days, while the
+>   new code charges per roll. The two agree on its whole-day holds. Left alone.
+> - Commission is priced at the fill in `window_trades` and at mid in the simulator: a
+>   1e-5 relative difference.
 
 Specs 006–018 need these whichever sample they spend. Each gets tests and none
 runs a strategy:
@@ -279,7 +343,66 @@ runs a strategy:
 4. a weekly portfolio simulator, for 014/016/017
 5. loaders for the H.10 daily and the BoJ call-rate files in `data/macro/`
 
-### Task 6: Tier 0b volatility model
+### Task 6: Tier 0b volatility model — **DONE 2026-11-26**
+
+> **Status:** `src/usdjpy/vol.py`, tested on synthetic data with known answers
+> (`tests/test_vol.py`, 33 tests with the hybrid clock and seed fix; 128 pass in all), checked on real pre-holdout bars by
+> `scripts/vol_model_check.py`. No strategy run; nothing predicts returns, so no trial
+> budget is spent. The design was fixed before any real-data fit (stated in the session);
+> one choice was then changed after the real-data check, below, and is marked as such.
+> - **Realised variance:** 5-min bid, previous-tick, 17:00-to-17:00 New York trading days
+>   (the `costs.roll_times` boundary), no cross-day returns, a day counts at >= 80% of its
+>   5-min intervals. Synthetic: unbiased for integrated variance (ratio 1.00 +/- 0.02), also
+>   with 30% of minutes missing; days missing their first quarter are flagged. Real
+>   (`combined`): 99% of weekdays valid from 2015, 41-80% in 2007-2014, 56% in 2023 (the
+>   HistData gap); median annualised vol 5-13% by year.
+> - **HAR-RV** (spec 017 O2, lags 1/5/22, levels, direct h-step, expanding OLS on rows whose
+>   target is observed by the forecast day, floor at the smallest training target,
+>   annualised over 260 weekdays). Synthetic: recovers known coefficients (+/- 0.06) and a
+>   perturbation test proves no look-ahead at h = 1 and 5. Real, out of sample from
+>   2010-07: MSE 0.60x the naive forecast at h = 1 and 0.66x at h = 5; QLIKE better at
+>   h = 1 (0.309 vs 0.337) but **marginally worse at h = 5 (0.255 vs 0.251)**; correlation
+>   with realised 0.27 / 0.39; final coefficient sum 0.71 / 0.64, weighted to the 22-day lag.
+>   Levels HAR is the spec's form; a log-HAR is the usual alternative if spec 017 wants it.
+>   That is spec 017's choice to declare, not made here.
+> - **EWMA** (`ewma_variance`, lam or centre of mass): seeded from the first 20 returns, no
+>   look-ahead (tested).
+> - **Minute-of-week baseline** (`seasonal_baseline`, spec 007's s_m and 017's spread z):
+>   `stat` over the same cell in the previous 12 weeks (`"84D"`, spec 007's 60 trading days),
+>   strictly before t, >= 8 observations. **`clock` is a required argument.** Real data
+>   (HistData 2015-2024): any single clock gives a baseline for ~97% of minutes; the
+>   DST-split clock of trap 7 (`jst_nydst`) for only **66.4%**, because each US DST change
+>   empties the new regime's cells for ~8 weeks. **Changed after the real-data check:** the
+>   first version counted the last 12 observations of a cell with no age limit; that
+>   silently borrowed last year's same-DST weeks, breaking "previous 60 trading days", and
+>   hid the 66% figure.
+> - **Decision (user, 2026-11-26): the hybrid clock.** Asked whether one clock could work
+>   with New York events shifted by the time-zone difference: yes, if New York-band minutes
+>   (03:00-17:10 ET, fixed before measuring) are keyed in New York time and the rest in JST,
+>   in **separate** key spaces (one shifted JST key space collides: 420 keys in an EDT week
+>   hold two market states). `clock="hybrid"` (`vol.HYBRID_NY_BAND`), commit `2ecd0c6`.
+>   Measured on HistData 2015-2024 (`scripts/vol_model_check.py` section 3): 96.1% of minutes
+>   have a baseline; in the 4 weeks after each of 20 US DST changes, Thursday 08:30 ET is
+>   over 5x baseline on 5.1% of minutes and 09:55 JST on 3.5%, as the matching single clock
+>   gives, against 30.8% at 08:30 ET on a Tokyo clock and 18.8% at 09:55 JST on a New York
+>   clock; the DST split has no baseline at all in those weeks. Cost: ~1 point of coverage
+>   at the band-edge JST cells, and London (EU DST) an hour off ~4 weeks a year. Adopted for
+>   minute-of-week work, **spec 007's s_m included**; spec 007's text is unchanged until it
+>   is run, and its run declares `clock="hybrid"`.
+> - **Sizing:** `vol_target_weight` (spec 014: 10%, cap 2; spec 017 O2: 8%); NaN vol
+>   gives NaN, never a capped full position. Feeds `portfolio.simulate` targets.
+>
+> **Findings for later specs (not edited into them):**
+> - **Spec 007 says "1-min mid log return"; use the bid.** On bid-only sources the
+>   synthetic ask makes the mid step 2.34 pips at 05:59 JST and 2.20 at 06:59 JST every
+>   day. With a minute-of-week baseline the steps are absorbed, so they hide real shocks at
+>   those minutes (a 5x rule fires on 0.9% of days on the mid against 5.7% on the bid)
+>   rather than creating false ones. *(My review note this session said they would create
+>   false shocks; the measurement says otherwise.)*
+> - **`signals.ewma_vol` and `stats.ewma_standardise` seeded with the full-sample
+>   variance**, future data included. **Fixed 2026-11-26 on the user's decision**
+>   (`stats.ewma_variance_past`), with spec 003 restated once to carry it: see
+>   `HANDOFF-2026-11-26-remaining.md` §3 item 5.
 
 HAR-RV on 5-minute realised volatility, the minute-of-week volatility profile, and
 vol-target sizing, which specs 007 and 017 use. This is infrastructure, not a test.

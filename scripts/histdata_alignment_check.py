@@ -51,7 +51,7 @@ import pandas as pd
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from usdjpy.config import DATA_DIR, HOLDOUT_START, RESULTS_DIR  # noqa: E402
-from usdjpy.datasets import HISTDATA_EU_DST_FROM, fix_histdata_dst, us_eu_dst_mismatch_windows  # noqa: E402
+from usdjpy.datasets import HISTDATA_EU_DST_FROM, fix_histdata_dst, h10_daily, us_eu_dst_mismatch_windows  # noqa: E402
 
 BARS = DATA_DIR / "bars_1min"
 OFFSETS = (-60, 0, 60)
@@ -196,18 +196,17 @@ def h10_noon(raw: pd.Series, fixed: pd.Series, years) -> pd.DataFrame:
     """Per US/EU mismatch window: median |HistData bid - H.10 noon rate| in pips at
     12:00 New York, reading the stored file at offsets -60/0/+60 (offset +60: the
     true noon price sits at label noon-60) and the corrected series at 0."""
-    h10 = pd.read_csv(DATA_DIR / "macro" / "fred_h10_usdjpy_daily_1971_2026.csv",
-                      parse_dates=["date"]).set_index("date")["JPY_per_USD"].dropna()
+    h10 = h10_daily()
     rows = []
     for a, b in us_eu_dst_mismatch_windows(years):
         for d in pd.date_range(a.normalize(), b.normalize(), freq="D"):
             day = d.tz_localize(None)
             if day not in h10.index or d.day_of_week >= 5:
                 continue
-            noon = (day + pd.Timedelta("12h")).tz_localize("America/New_York").tz_convert("UTC")
+            noon = h10.at[day, "observed_at"]
             if not (a <= noon < b):
                 continue
-            ref = h10.loc[day]
+            ref = h10.at[day, "rate"]
             rec = {"window_start": str(a.date()), "date": str(day.date())}
             for off in OFFSETS:
                 rec[f"stored_{off:+d}"] = abs(_at(raw, noon - pd.Timedelta(minutes=off)) - ref) / PIP

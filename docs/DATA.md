@@ -51,15 +51,22 @@ Positions are as of **Tuesday**, released **Friday 15:30 ET**. Use `available_fr
 | File | Coverage | Content | Source |
 |---|---|---|---|
 | `macro/fred_daily_2000_2026H1.csv` | 2000-01 → 2026-06 | DEXJPUS, DGS10/20/30, VIXCLS, NIKKEI225 | FRED, via github.com/gourujeevan-cpu/japan-jgb-yield-regression |
-| `macro/fred_h10_usdjpy_daily_1971_2026.csv` | 1971-01 → 2026-11-20 | Fed H.10 noon NY USDJPY | FRED via github.com/datasets/exchange-rates |
+| `macro/fred_h10_usdjpy_daily_1971_2026.csv` | 1971-01 → 2026-11-20 | Fed H.10 noon NY USDJPY | FRED via github.com/datasets/exchange-rates. Loader `datasets.h10_daily()` (drops the 572 holiday rows; stamps 12:00 New York). Identical to `DEXJPUS` in `fred_daily_2000_2026H1.csv` on all 6,635 dates that file quotes (max difference 0.0, checked 2026-11-26). |
 | `macro/mof_jgb_yields_daily_1974_2026.csv` | 1974-09 → 2026-05 | MOF JGB yield curve 1y–40y | MOF jgbcm_all.csv via same GitHub repo |
 | `dgs2.csv` | 2005-01 → 2026-11-24 | UST 2y CMT, FRED `DGS2` layout (`observation_date,DGS2`) | **Treasury** daily par-curve CSV, "2 Yr" column, per year 2005–2026 (FRED timed out from the seeding environment; same underlying series). At `DATA_DIR` root, not under `macro/`, because `rate_path_study.py` expects it there. Fetched 2026-11-24 for spec 003. |
 | `jgbcme_all.csv` | 1974-09 → 2026-10-30 | MOF JGB curve 1Y–40Y, English edition | mof.go.jp/english/policy/jgbs/reference/interest_rate/historical/jgbcme_all.csv (the URL in `rate_path_study.py` had 404'd). 2Y matches `macro/mof_jgb_yields…` exactly on 5,238 overlapping days. At `DATA_DIR` root, not under `macro/`. Fetched 2026-11-24. |
-| `macro/boj_call_rate_monthly_1985_2026.csv` | 1985-07 → 2026-05 | Uncollateralised O/N call rate (EOM, avg) | BoJ time-series via same repo |
+| `macro/boj_call_rate_monthly_1985_2026.csv` | 1985-07 → 2026-05 | Uncollateralised O/N call rate (EOM, avg) | BoJ time-series via same repo. Loader `rates.boj_call_rate()`: monthly average, stamped 10:00 JST on the first Japanese business day of the next month, when the BoJ publishes the month's last final daily rate ([BoJ call money data](https://www.boj.or.jp/en/statistics/market/short/mutan/index.htm): final results for the previous business day around 10:00). Until 2026-11-26 it was stamped 00:00 UTC on the 1st, a look-ahead of 1 h (median) to 145 h (Golden Week 2019); its effect is in `HANDOFF-2026-11-25-during-fetch.md` Task 5. |
 | `macro/vix_daily_1990_2026.csv` | 1990 → 2026-09 | VIX OHLC | CBOE via github.com/datasets/finance-vix |
 
-**Missing: US 2-year yield (DGS2)** — needed for the rate-differential signal. `fetch_official.py` pulls
-it with DFF, SOFR, broad dollar and others into `data/official/fred_daily.csv`.
+**`official/fred_daily.csv` holds DFF and DGS2 only** (fetched 2026-11-26 from fred.stlouisfed.org
+`fredgraph.csv` through `fetch_official.fred()` restricted to those two series; DFF 1954-07-01 →
+2026-11-24, DGS2 1976-06-01 → 2026-11-24; SHA-256 `a2559174…eba5`). Loaders `rates.fed_funds()` and
+`rates.us_2y()`. FRED DGS2 equals the Treasury-sourced `dgs2.csv` on all 5,478 shared days. With it,
+spec 005's first-run results (`51980ab`) reproduce exactly once the two later loader fixes are undone
+(HistData DST, exec-hour spread), so this vintage is the one spec 005 first ran on; its restated
+*Results* come from this file on current code. The full `fetch_official.py` run
+(SOFR, VIX, SP500, the other FRED series, MOF, CFTC) has not been done and would overwrite this file
+with more columns. Rows from 2025 are holdout: on disk is not use; the loaders' consumers enforce it.
 
 ## Calendars (tracked in git)
 

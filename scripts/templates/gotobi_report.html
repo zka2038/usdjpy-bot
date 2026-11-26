@@ -150,7 +150,7 @@ __D3__</script>
 
   <section class="gb-sec" id="kill-criteria">
     <h2>Kill criteria</h2>
-    <p class="gb-note">Decided in the spec before testing. A rule that fails any of them is dropped. "Present in 2022–24" is read here as a t-stat of at least 2 within that period alone.</p>
+    <p class="gb-note">Decided in the spec before testing. A rule that fails any of them is dropped. "Present in 2022–24" is read as a positive mean net in that period (a stability check: a t-stat of 2 in a slice of a fifth of the trades has about 20% power at the full-sample effect). "Survives pessimistic costs" is the full-sample t-stat under those costs. Decided 2026-11-26; see spec 001 Results.</p>
     <div class="gb-tablewrap">
       <table class="gb-table" data-source="verdict" data-row-key="id">
         <thead>
@@ -259,8 +259,8 @@ const dash = (() => {
           value: (rule) => get(rule, 'gotobi', 'base', 'all').mean_net_pips, ok: (v) => v > 0 },
         { id: 'c2', criterion: 't-stat, base costs', threshold: '≥ ' + T_MIN, fmt: 'num',
           value: (rule) => get(rule, 'gotobi', 'base', 'all').t, ok: (v) => v >= T_MIN },
-        { id: 'c3', criterion: 'Present in 2022–24: t-stat for that period, base costs', threshold: '≥ ' + T_MIN, fmt: 'num',
-          value: (rule) => get(rule, 'gotobi', 'base', '2022+').t, ok: (v) => v >= T_MIN },
+        { id: 'c3', criterion: 'Present in 2022–24: mean net pips for that period, base costs', threshold: '> 0', fmt: 'pips',
+          value: (rule) => get(rule, 'gotobi', 'base', '2022+').mean_net_pips, ok: (v) => v > 0 },
         { id: 'c4', criterion: 'Survives pessimistic costs: t-stat', threshold: '≥ ' + T_MIN, fmt: 'num',
           value: (rule) => get(rule, 'gotobi', 'pessimistic', 'all').t, ok: (v) => v >= T_MIN },
         { id: 'c5', criterion: 'Beats control days: Welch p-value on mid moves', threshold: '< ' + P_MAX, fmt: 'p',

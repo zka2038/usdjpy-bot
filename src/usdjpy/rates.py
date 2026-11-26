@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .calendars import jp_business_days
 from .config import DATA_DIR
 
 FRED_OFFICIAL = DATA_DIR / "official" / "fred_daily.csv"
@@ -48,13 +49,21 @@ def fed_funds() -> pd.DataFrame:
 def boj_call_rate() -> pd.DataFrame:
     """BoJ uncollateralised overnight call rate, monthly average (%). Used for carry only.
 
-    A month's average is known at the start of the next month; we stamp it at 00:00 UTC on the
-    1st of the following month and carry it forward.
+    A month's average cannot be complete before the month's last final daily rate, which
+    the BoJ publishes around 10:00 JST on the next business day. So it is stamped 10:00
+    JST on the first Japanese business day of the following month (index: that day).
+    Until 2026-11-26 it was stamped 00:00 UTC on the 1st, a look-ahead of 1 hour
+    (median) to 145 hours (Golden Week 2019); spec 005, its only consumer then, moves by
+    at most 0.001 in any printed figure (HANDOFF-2026-11-25-during-fetch.md, Task 5).
+    The monthly average lags policy moves by up to two months regardless: a proxy for the
+    daily benchmark a broker charges, not a measurement of it.
     """
     b = pd.read_csv(BOJ_FILE)
     month = pd.to_datetime(b["month"].str.replace("/", "-") + "-01")
-    s = pd.Series(b["call_rate_avg"].to_numpy(), index=month + pd.offsets.MonthBegin(1))
-    return _stamp(s, "00:00", "UTC")
+    nxt = month + pd.offsets.MonthBegin(1)
+    bdays = jp_business_days(nxt.min().date(), (nxt.max() + pd.Timedelta(days=40)).date())
+    first = pd.DatetimeIndex(bdays[bdays.searchsorted(nxt)])
+    return _stamp(pd.Series(b["call_rate_avg"].to_numpy(), index=first), "10:00", "Asia/Tokyo")
 
 
 def asof(series: pd.DataFrame, times: pd.DatetimeIndex, max_age_days: float | None = None) -> pd.DataFrame:
