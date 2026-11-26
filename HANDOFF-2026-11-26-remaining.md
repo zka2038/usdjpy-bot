@@ -18,10 +18,10 @@ only, repeatedly.
 
 ## 1. Where things stand
 
-- **`main` holds all of this work** (PR #4, merge `3a951ba`), including the four
-  previously unpushed commits of the session before. It is the starting point for
-  what follows; leave it as is. Work continues on `research/remaining-work`, branched
-  from `3a951ba` and not merged; the user decides when it goes to `main`.
+- **`main` is at PR #5** (merge `cb04c11`, by the user, 2026-11-26 01:01 UTC), which took
+  `research/remaining-work` up to `8cad770`. Work continues on `research/remaining-work`;
+  everything after `8cad770` there is not on `main`, and the user decides when it goes.
+  Never push or merge to `main`.
 - **Tasks 1–4 of the during-fetch handoff are done.** Task 3's analysis is written
   and tested but cannot run until the fetch completes.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
@@ -31,10 +31,12 @@ only, repeatedly.
 
 ## 2. The fetch
 
-`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. At this writing:
-stage 1 complete, stage 2 at its first days with 441 days left, stage 3 not started
-(2,506 days), and Dukascopy has been answering HTTP 429 for about 1.5 hours. Expect
-days, not hours. What is fetched and why: `specs/README.md`, *Dukascopy fetch*.
+`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 15:40
+UTC: stages 1 and 2 complete; stage 3 running (2,494 days, ~8,300 requests left, about 69
+hours at full pace, so 29 Nov at the earliest).** It has died twice, the second time
+(~13:44 UTC 26 Nov) on battery sleep, which `caffeinate -i` does not prevent: keep the
+machine on mains power. Restarted 14:48 UTC, PID 51021. What is fetched and why:
+`specs/README.md`, *Dukascopy fetch*.
 
 ```bash
 cd "/Volumes/bzk Drive/usdjpy-bot"
@@ -48,8 +50,8 @@ the default reads the worktree's own `data/tokyo_hours`, which is deliberately n
 linked, and reports every stage as untouched. Request counts (not just days):
 `download_gap_fill.planned(*STAGES[s][:3], out_dir=...)`, also filenames only.
 
-- **It has died once** (2026-11-25, between 22:43 and 23:02 UTC, no traceback) and
-  was restarted. Restart it the way `HANDOFF-2026-11-25-during-fetch.md` §2
+- **It has died twice** (2026-11-25 ~22:43, and 2026-11-26 ~13:44 UTC; no traceback
+  either time) and was restarted each time. Restart it the way `HANDOFF-2026-11-25-during-fetch.md` §2
   describes, from the **main checkout** (`/Volumes/bzk Drive/usdjpy-bot`), never from
   a worktree: a worktree's script writes into the worktree's own `data/`. Start it
   with `start_new_session=True`, write its PID to `data/tokyo_hours/fetch.pid`, and
@@ -80,7 +82,28 @@ linked, and reports every stage as untouched. Request counts (not just days):
    clone) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
 4. **Task 6, the volatility model:** HAR-RV on 5-minute realised vol, the
    minute-of-week vol profile, and vol-target sizing (specs 007, 017). Build it on
-   `load_minute("combined")` and validate on synthetic data first.
+   `load_minute("combined")` and validate on synthetic data first. *(Started 2026-11-26;
+   status in `HANDOFF-2026-11-25-during-fetch.md` Task 6.)*
+5. **Spec 003 re-run check** (added 2026-11-26 on the user's instruction). Spec 003's
+   *Results* say "Run 2026-11-25"; the spec was last changed at 02:15 that day, before
+   the HistData DST fix (`a1dfccb`, 17:42), so like spec 005 its figures (max |t_hc|
+   1.80 against the 2.81 bar; MDE Sharpe 0.97) may not reproduce on current code. Its
+   exec-hour correction is already in (`d541d7d`). Method, as for spec 005 (Task 5 record):
+   run `scripts/rate_path_study.py` on current code; if it differs from the published
+   figures, confirm the difference is the DST fix by re-running with
+   `datasets.fix_histdata_dst` disabled, which should reproduce them exactly. **Report
+   before editing anything:** restating spec 003, and its copies in `CLAUDE.md` *Current
+   state*, `HANDOFF.md` §1 and §4, is the user's decision. If restated, confirm on a fresh
+   clone first, as spec 005 was.
+6. **Spec 001 housekeeping** (added 2026-11-26 on the user's instruction). Spec 001's
+   *Results* section still reads "_Pending._ Run `python scripts/gotobi_study.py`",
+   while `CLAUDE.md` *Current state* and `HANDOFF.md` §1 list it as "upheld, mechanism
+   unconfirmed". Find where the figures behind "upheld" were recorded (spec 004 and the
+   research notes cite them) and either record spec 001's own results in the spec, on
+   current code and saying which, or point the section to where they live. Do not
+   restate spec 001 as Gotobi-proper (`HANDOFF.md` §6: withdrawn). `gotobi_study.py`
+   output on current code was checked identical before and after Task 5 (Task 5 record),
+   but has not been compared against any published spec 001 figure.
 
 ## 4. Ask the user first
 

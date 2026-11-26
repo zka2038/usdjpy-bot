@@ -27,9 +27,9 @@ is in `HANDOFF-2026-11-26-remaining.md`. This file does not repeat it.
 - **Commit on `research/remaining-work`** with the repo's configured identity, and
   push only that branch: `git push origin research/remaining-work`. Its upstream is
   `origin/research/remaining-work`, not `main`.
-- **`main` stays as it is** (PR #4, merge `3a951ba`), as the starting point. Do not
-  push to it, merge into it, or open a pull request against it; merging is the user's
-  decision.
+- **`main` is the user's** (now PR #5, merge `cb04c11`; see the remaining-work handoff
+  §1). Do not push to it, merge into it, or open a pull request against it; merging is
+  the user's decision.
 - **Leave the main checkout's branch alone**: `/Volumes/bzk Drive/usdjpy-bot`, on
   `research/002-intervention-disclosure`. The running fetch was started from it.
 
@@ -51,7 +51,8 @@ ceiling, about 120 requests an hour.
 
 **Re-measured 2026-11-26 01:04 UTC:** alive (PID 15067), one day file every 2 minutes,
 which is full pace. Stage 1 done; stage 2 411 days / 1,414 requests, stage 3 2,506 / 8,354;
-9,768 left. The projection above stands.
+9,768 left. The projection above stands. **Later status** (a second death, the restart,
+stage 2 done): `HANDOFF-2026-11-26-remaining.md` §2, the one place it is kept current.
 
 More blocks, or the process dying unnoticed (laptop sleep is the likely cause), push
 it later. Re-measure rather than trusting these dates. Day files' modification times
@@ -75,6 +76,8 @@ are metadata, not contents, and may be listed.
 As in `HANDOFF-2026-11-26-remaining.md` §3:
 1. ~~**Task 5**, the harness gaps.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 5).
 2. **Task 6**, the volatility model, validated on synthetic data first.
+2a. **Spec 003 re-run check and spec 001 housekeeping** (`HANDOFF-2026-11-26-remaining.md`
+   §3 items 5-6). Report the spec 003 comparison before editing anything.
 3. **When the fetch completes, stop and tell the user** before running
    `scripts/004_gap_fill_analysis.py`, then continue with §3 items 1–2 there.
 
