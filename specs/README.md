@@ -51,8 +51,8 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
   - ~~`summarize()` periods don't match the 2015–19/2020–24 split.~~ `summarize(..., periods=PERIODS_2015_2024)`.
   - ~~There is no weekly portfolio simulator (needed for 014/016/017).~~ `src/usdjpy/portfolio.py`.
   - ~~There is no loader for the H.10 daily or the BoJ call-rate files.~~ `datasets.h10_daily()`; the BoJ
-    loader already existed as `rates.boj_call_rate()`. **Still missing: a USD short rate** (`DFF`):
-    `rates.fed_funds()` needs `data/official/fred_daily.csv`, which has not been fetched.
+    loader already existed as `rates.boj_call_rate()` (its publication stamp corrected 2026-11-26).
+    The USD short rate (`DFF`) for `rates.fed_funds()` was fetched 2026-11-26 (`docs/DATA.md`).
   - ~~Verify HistData UTC alignment in US summer.~~ **Settled 2026-11-25, and restated.** US summer itself
     is aligned (every full EDT and EST month at offset 0 against Dukascopy and Eightcap). The real fault was
     narrower: from 2019 HistData's raw clock changes on **EU** DST dates, so in the weeks where US and EU

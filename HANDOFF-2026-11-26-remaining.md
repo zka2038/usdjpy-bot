@@ -27,7 +27,7 @@ only, repeatedly.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
   weekday-matched control at the declared bar; criterion 4 passes; criterion 5 is
   pending the measured spread. Figures in `HANDOFF.md` §2 and the spec's *Results*.
-- **Tests:** 94 pass after Task 5 (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
+- **Tests:** 95 pass after Task 5 and the BoJ stamp fix (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
 
 ## 2. The fetch
 
@@ -75,9 +75,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
    lists (`CLAUDE.md` *Current state* and trial budget, `HANDOFF.md` §2, the
    `specs/README.md` index), each saying which sample it quotes.
 3. ~~**Task 5, harness gaps**~~ **Done 2026-11-26.** What was built, the two
-   `window_trades` defects fixed, the diff proof, and two items left for the user (the
-   BoJ call-rate stamp; no USD short rate on disk) are in
-   `HANDOFF-2026-11-25-during-fetch.md` Task 5.
+   `window_trades` defects fixed, the diff proof, the DFF fetch and BoJ stamp fix that
+   followed, and one open decision (spec 005's *Results* are stale on current code;
+   restate or not) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
 4. **Task 6, the volatility model:** HAR-RV on 5-minute realised vol, the
    minute-of-week vol profile, and vol-target sizing (specs 007, 017). Build it on
    `load_minute("combined")` and validate on synthetic data first.

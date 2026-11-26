@@ -31,6 +31,20 @@ def test_jgb_same_day_not_usable_at_tokyo_morning():
     assert list(got["value"]) == [0.18, 0.19]
 
 
+def test_boj_average_stamped_when_the_months_last_final_print_exists(tmp_path, monkeypatch):
+    from usdjpy import rates
+    f = tmp_path / "boj.csv"
+    f.write_text("month,call_rate_eom,call_rate_avg\n2019/04,-0.05,-0.06\n2024/05,0.07,0.08\n2024/12,0.23,0.24\n")
+    monkeypatch.setattr(rates, "BOJ_FILE", f)
+    b = rates.boj_call_rate()
+    # first JP business day of the next month, 10:00 JST: Golden Week 2019, a Saturday 1st,
+    # and New Year (banks shut 31 Dec - 3 Jan, then a weekend)
+    assert list(b["available_at"]) == [pd.Timestamp(s, tz="UTC") for s in
+                                       ("2019-05-07 01:00", "2024-06-03 01:00", "2025-01-06 01:00")]
+    got = asof(b, pd.DatetimeIndex(["2025-01-06 00:00", "2025-01-06 01:30"], tz="UTC"))
+    assert list(got["value"]) == [0.08, 0.24]
+
+
 def test_stale_values_dropped():
     us = _stamp(_series(["2024-01-02"], [4.3]), "18:00", "America/New_York")
     got = asof(us, pd.DatetimeIndex(["2024-01-04 00:00", "2024-01-12 00:00"], tz="UTC"), max_age_days=5)

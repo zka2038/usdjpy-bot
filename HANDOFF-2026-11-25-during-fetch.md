@@ -303,13 +303,25 @@ had been viewed when it was made.
 > All 9 alignment CSVs are byte-identical. The clean export also reproduced the shared
 > `results/004_*.csv` byte for byte.
 >
-> **Found, not changed (the user's call):**
-> - `rates.boj_call_rate()` stamps a month's average at 00:00 UTC on the 1st of the next
->   month, a few days before the month's last final daily print. It is a small look-ahead
->   on a carry input. Fixing it moves spec 005's financing figures.
-> - **No USD short rate is on disk.** `rates.fed_funds()` needs `data/official/fred_daily.csv`
->   (`scripts/fetch_official.py`), never fetched. Specs 006 C, 012, 013, 014 and 016 need it
->   for financing. It is a new fetch, so ask first.
+> **Put to the user, then settled 2026-11-26:**
+> - **USD short rate: fetched** on the user's go-ahead. `data/official/fred_daily.csv` now
+>   holds FRED DFF and DGS2 (only those two; provenance in `docs/DATA.md`). DGS2 came too
+>   because spec 005, the BoJ loader's only consumer, cannot run without it.
+> - **BoJ call-rate stamp: fixed**, after measuring it. It is now 10:00 JST on the first
+>   JP business day of the next month, when the month's last final daily print appears;
+>   the old stamp was 1 h (median) to 145 h early. On spec 005 the largest change in any
+>   printed figure is 0.001 (V1 t −0.240 → −0.241, V3 mean −0.825 → −0.826), with financing
+>   and both diagnostics unchanged at 2 dp. It cannot touch spec 004, which holds no night.
+>   It is fixed because the Task 5 financing code makes this loader the JPY leg of every
+>   overnight spec. Known-answer test in `tests/test_h3.py`.
+> - **Found while measuring it: spec 005's published *Results* do not reproduce on
+>   current code.** They reproduce exactly (3,976 days; −0.73 / +7.16 / −0.54 pips; t
+>   −0.19 / +0.47 / −0.04; slope +0.96 at t +2.19) only with the HistData DST fix and the
+>   exec-hour spread fix both undone. Spec 005 was committed (`51980ab`) before either.
+>   On current code: 3,971 days; V1 −0.95 t −0.24, V2 +3.66 t +0.23, V3 −0.83 t −0.06;
+>   slope +0.86 at **t +1.89**. The verdict is unchanged (every t far below 3.0). But
+>   `CLAUDE.md` quotes 005's slope as t +2.19, and the spec's table is stale. **Restating
+>   spec 005 is the user's decision; not done.**
 > - `horizon.simulate` (spec 005) charges financing on fractional calendar days, while the
 >   new code charges per roll. The two agree on its whole-day holds. Left alone.
 > - Commission is priced at the fill in `window_trades` and at mid in the simulator: a
