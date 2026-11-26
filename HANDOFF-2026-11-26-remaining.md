@@ -110,7 +110,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
      from, and the synthetic harness section unchanged. Only then were spec 003 *Results*,
      `CLAUDE.md` (inference rule, *Current state*), `HANDOFF.md` §1 and §4 rewritten.
    - *Result.* max |t_hc| 1.80 → 1.78, MDE Sharpe 0.97 → 0.98; verdict unchanged.
-6. ~~**Spec 001 housekeeping**~~ **Done 2026-11-26; one decision left for the user.**
+6. ~~**Spec 001 housekeeping**~~ **Done 2026-11-26, and the reading decided** (2022+ by
+   mean > 0, `PESSIMISTIC` by full-sample t ≥ 2: both rules pass; spec 001 *Results* gives
+   the power argument and the disclosure). The finding that prompted the decision:
    Spec 001's figures had never been recorded in git: its *Results* read "_Pending._", and
    the verdict existed only in `gotobi_report.py`'s gitignored HTML. They are now in spec
    001 *Results*, on current code (fresh clone at `81c7b13`) and on first-run code (exec-hour
@@ -119,9 +121,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
    slices. On that reading rule **1b passes every criterion, and rule 1a fails 2022+ on any
    code (t 0.97 now, 0.74 first run) and failed `PESSIMISTIC` on first-run code (t 1.62)**,
    so "upheld" was never true of 1a on that reading. On the plain mean > 0 reading both
-   rules pass. **The user decides which reading governs**; until then spec 001's status
-   line says "pending", and `CLAUDE.md`, `HANDOFF.md` §1 and the `specs/README.md` index
-   carry a "per rule under review" note. Not restated as Gotobi-proper.
+   rules pass. Status copies updated (`CLAUDE.md`, `HANDOFF.md` §1 and §4, the
+   `specs/README.md` index) and `gotobi_report.py`'s template now applies the same reading.
+   Not restated as Gotobi-proper.
 
 ## 4. Ask the user first
 
@@ -187,7 +189,7 @@ and 6, §3 items 3-6 above, `HANDOFF.md` §4 (superseded values).
 2. §3 item 2: record the filled run in spec 004 and its copies.
 
 ### Decisions only the user can make (no data needed)
-3. **Spec 001's kill-criterion reading** (§3 item 6): t ≥ 2 (1a fails) or mean > 0 (both pass).
+3. ~~**Spec 001's kill-criterion reading**~~ Decided 2026-11-26 (§3 item 6): both rules pass.
 4. **Spec 007's return series:** its rule says "1-min mid"; the measurement says use the
    bid (Task 6 record). Its clock is decided (`hybrid`). Changing "mid" is a rule change
    to an unrun spec, so the user's.

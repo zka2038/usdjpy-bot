@@ -12,7 +12,7 @@ the next action, and the mistakes made getting here so they are not repeated.
 
 | Spec | Verdict | Why |
 |---|---|---|
-| 001 gotobi / Tokyo fix | **upheld; mechanism not established; per rule under review** (1b passes all criteria, 1a fails 2022+ at t ≥ 2; reading pending the user, spec 001 *Results*) | 004's A-vs-B separation is uninformative and its weekday-matched B-vs-C is below 2.5, so do **not** restate 001 as Gotobi-proper (the earlier advice to restate it is withdrawn). |
+| 001 gotobi / Tokyo fix | **upheld (both rules); mechanism not established** (results and criteria reading recorded 2026-11-26 in spec 001 *Results*) | 004's A-vs-B separation is uninformative and its weekday-matched B-vs-C is below 2.5, so do **not** restate 001 as Gotobi-proper (the earlier advice to restate it is withdrawn). |
 | 002 intervention disclosure | **rejected** | Real effect (−0.172 to −0.269 yen, robustness-tested) but 1.3 episodes/yr, Sharpe 0.24–0.43. Risk overlay only. |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | Max abs(t_hc) 1.78 vs the 2.81 bar (restated 2026-11-26), right sign at all four horizons. The "well-powered null" label was wrong: MDE Sharpe is 0.98 against a 0.73 tradeability bar. |
 | 004 turn-of-month separation | **B beats zero and unmatched control; Gotobi specificity not established; separation unanswerable** | DST-corrected. Net vs zero t +3.47 / +3.34. B vs C t +3.28 / +2.80 unmatched, **+1.91 / +2.28 weekday-matched** (B is 44% Fridays). Declared A-vs-B t -1.39 / +0.21, uninformative. Criterion 4 passes; 5 pending the measured spread. |
@@ -165,6 +165,7 @@ in each line is right.
 | trial headroom | three (passes to N=8) | **about five** (N=5 specs; limits N=10–17 prefix, N=11 postfix) |
 | holdout power | 14% | **16%** (SE 2.355 vs +2.301) |
 | spec 004 day counts | A 234, B 1159, month-end 17% | **216 / 1075, 16.7%** pre-holdout (the old counts ran into 2026) |
+| spec 001 verdict | "upheld", never recorded in the spec; the report read 2022+ as t ≥ 2 | **upheld for both rules on current code**, 2022+ read as mean > 0 (t ≥ 2 there has 17-23% power at the full-sample effect). On first-run code 1a failed `PESSIMISTIC` (t 1.62), so the first "upheld" was unsupported for 1a. Decided 2026-11-26, after the results were seen |
 | spec 003 table (first run, 2026-11-25) | std t_hc +1.80 / +1.17 / +0.81 / +0.95; raw rho 0.0253 / 0.0437 / 0.0318 / 0.0431; rho 0.0303 at h=1; MDE rho 0.0613 | **+1.78 / +1.15 / +0.75 / +0.88; 0.0259 / 0.0441 / 0.0314 / 0.0413; 0.0302; 0.0620.** First table ran before the exec-hour and HistData DST fixes and with `ewma_vol` seeded on the whole series; verdict unchanged. Restated 2026-11-26, confirmed from a fresh clone |
 | spec 005 headline (first run, 2026-11-24) | 3,976 days; −0.73 / +7.16 / −0.54 pips, NW t −0.19 / +0.47 / −0.04; slope +0.96 t +2.19; V2 long t 1.91 | **3,971 days; −0.95 / +3.66 / −0.83, t −0.24 / +0.23 / −0.06; slope +0.86 t +1.89; V2 long t 1.70.** Ran before the exec-hour, HistData DST and BoJ-stamp fixes; verdict unchanged. Restated 2026-11-26, confirmed from a fresh clone |
 

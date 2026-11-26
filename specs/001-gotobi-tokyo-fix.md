@@ -1,6 +1,6 @@
 # Spec 001: Gotobi / Tokyo 9:55 JST fix
 
-**Author:** Haru · **Date:** 2026-11-24 · **Status:** results recorded 2026-11-26; 1b passes every criterion, 1a fails the 2022+ criterion under the t ≥ 2 reading. Verdict pending the user's choice of reading (see *Results*)
+**Author:** Haru · **Date:** 2026-11-24 · **Status:** upheld, both rules; mechanism not established (results recorded and criteria reading decided 2026-11-26, see *Results*)
 
 ## Hypothesis
 Japanese importers buy USD at the Tokyo bank fix (9:55 JST), and this demand is concentrated on
@@ -63,6 +63,8 @@ mean / (sd / √n).
   before the first results were seen is not recorded.
 - *mean > 0*: the plain-text reading, as spec 005 later wrote its own 2022+ criterion.
 
+Both readings are tabulated; the decision between them follows the table.
+
 | Criterion | 1a current | 1a first run | 1b current | 1b first run |
 |---|---|---|---|---|
 | Mean net > 0, base | pass | pass | pass | pass |
@@ -73,10 +75,27 @@ mean / (sd / √n).
 | `PESSIMISTIC`, mean > 0 reading | pass | pass | pass | pass |
 | Welch p < 0.05 vs control | pass | pass | pass | pass |
 
-**Status: pending the user's decision on which reading governs.** Rule 1b passes under
-both. Rule 1a passes only under the mean > 0 reading; under the report's t ≥ 2 reading
-it fails the 2022+ criterion on any code (and failed `PESSIMISTIC` too on first-run
-code), so "upheld" was never true of 1a on that reading.
+**Reading decided 2026-11-26** (proposed by the agent on the evidence below, adopted by the
+user; recorded as a post-hoc resolution of ambiguous text, made after these results were
+seen; no threshold changed):
+- **2022+ ("effect absent"): mean > 0.** A stability check on a slice holding 19% of the
+  trades. Requiring t ≥ 2 inside it tests power, not presence: if the full-sample effect
+  held unchanged, the slice would reach t ≥ 2 only **17%** of the time for 1a and **23%**
+  for 1b, and doing so reliably needs a full-sample t of about 4.6. The slice MDE at 80%
+  power is 5.13 pips (1a) and 3.93 (1b) against effects of ~1.8, which `CLAUDE.md` calls an
+  uninformative null, not evidence of absence. Nothing suggests decay: 1a's 2022+ mean
+  (+1.76) against its pre-2022 mean differs by −0.12 pips (Welch t −0.06, p 0.95); 1b's by
+  +2.03 (t +1.37, p 0.17). The repo tests stability by sign elsewhere (spec 004 sub-period
+  cells, spec 005's 2022-24 criterion, spec 006's two halves). The t ≥ 2 reading in
+  `gotobi_report.py` is changed to match.
+- **`PESSIMISTIC` ("fails"): t ≥ 2.** It repeats criteria 1-2 on the full sample under
+  worse costs, so it has no power problem, and net t under `PESSIMISTIC` is the field
+  standard the repo adopted for spec 004 (`docs/research/Gap fill cost methodology standards.md`).
+
+**Verdict: both rules pass every criterion on current code. Upheld; mechanism not
+established.** Disclosed: on first-run code rule 1a failed the `PESSIMISTIC` criterion
+(t 1.62), so "upheld" as first written was not supported for 1a; it is on the corrected
+bars. Rule 1b passed on both.
 
 Whatever the reading, the mechanism is **not** established: the treatment group bundles
 month-end (16.7% of pre-holdout gotobi days), spec 004's A-vs-B separation is

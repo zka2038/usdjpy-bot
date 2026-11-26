@@ -77,7 +77,7 @@ As in `HANDOFF-2026-11-26-remaining.md` §3:
 1. ~~**Task 5**, the harness gaps.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 5).
 2. ~~**Task 6**, the volatility model.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 6).
 2a. ~~**Spec 003 re-run check and spec 001 housekeeping**~~ Done 2026-11-26
-   (`HANDOFF-2026-11-26-remaining.md` §3 items 5-6; spec 001 leaves one decision open).
+   (`HANDOFF-2026-11-26-remaining.md` §3 items 5-6; spec 001's criteria reading decided).
 3. **When the fetch completes, stop and tell the user** before running
    `scripts/004_gap_fill_analysis.py`, then continue with §3 items 1–2 there.
 4. **Until then, and after:** `HANDOFF-2026-11-26-remaining.md` §6, the scope for
