@@ -12,7 +12,7 @@ the next action, and the mistakes made getting here so they are not repeated.
 
 | Spec | Verdict | Why |
 |---|---|---|
-| 001 gotobi / Tokyo fix | **upheld; mechanism not established** | 004's A-vs-B separation is uninformative and its weekday-matched B-vs-C is below 2.5, so do **not** restate 001 as Gotobi-proper (the earlier advice to restate it is withdrawn). |
+| 001 gotobi / Tokyo fix | **upheld; mechanism not established; per rule under review** (1b passes all criteria, 1a fails 2022+ at t ≥ 2; reading pending the user, spec 001 *Results*) | 004's A-vs-B separation is uninformative and its weekday-matched B-vs-C is below 2.5, so do **not** restate 001 as Gotobi-proper (the earlier advice to restate it is withdrawn). |
 | 002 intervention disclosure | **rejected** | Real effect (−0.172 to −0.269 yen, robustness-tested) but 1.3 episodes/yr, Sharpe 0.24–0.43. Risk overlay only. |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | Max abs(t_hc) 1.78 vs the 2.81 bar (restated 2026-11-26), right sign at all four horizons. The "well-powered null" label was wrong: MDE Sharpe is 0.98 against a 0.73 tradeability bar. |
 | 004 turn-of-month separation | **B beats zero and unmatched control; Gotobi specificity not established; separation unanswerable** | DST-corrected. Net vs zero t +3.47 / +3.34. B vs C t +3.28 / +2.80 unmatched, **+1.91 / +2.28 weekday-matched** (B is 44% Fridays). Declared A-vs-B t -1.39 / +0.21, uninformative. Criterion 4 passes; 5 pending the measured spread. |
