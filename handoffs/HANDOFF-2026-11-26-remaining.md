@@ -38,11 +38,27 @@ only, repeatedly.
 `scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 19:20
 UTC: stages 1 and 2 complete; stage 3 has 2,425 days (8,084 requests) left, about 67
 hours at full pace, so 29 Nov at the earliest; at the pace of the previous 6 hours
-(63 requests/h, with rate limiting) about 5 days.** It died a third time at ~19:19 UTC,
-on battery at 9% (no sleep was logged, no traceback), and was restarted at 19:20 as
-**PID 61088**; the machine went onto mains power right after. **Keep it on mains
-power**: two of three deaths came with a low battery. What is fetched and why:
+(63 requests/h, with rate limiting) about 5 days.** What is fetched and why:
 `specs/README.md`, *Dukascopy fetch*.
+
+**Why it dies (found 2026-11-26 ~20:18 UTC): the external drive drops out.** At 20:18 the
+working directory on `/Volumes/bzk Drive` vanished and the volume remounted seconds later;
+the fetch restarted at 20:17 died with it. The drive is a USB "Portable" 2 TB disk, exFAT,
+`disksleep` 0. Every death fits: no traceback, no crash report, no logged kill, no sleep;
+each at a write to the drive (a day file, then its `fetch.log` line). A process whose
+stdout and stderr are files on a vanished volume cannot report its own failure. Battery
+was a coincidence or a contributor (bus power), not the cause: the 4th death (20:16) was on
+AC. Restarted at ~20:19 UTC as **PID 65043**. **The fix is physical or a relocation, and
+the user's call:** reseat or replace the USB cable, use a port without a hub or a powered
+hub, or move `data/tokyo_hours/` (or the repo) to the internal disk. Until then every
+dropout kills the fetch and needs a restart.
+
+**Day files written at a death may be truncated** (13:44 → `2024-08-05`, 19:19 →
+`2007-04-03`, 20:16 → `2007-05-11`, 20:18 → whichever day was in flight). They count as
+fetched by name, so the fetch never revisits them. They must not be opened while the fetch
+runs (blinding); a truncated parquet fails loudly when the analysis loads it. Before the
+analysis runs, decide with the user how to check them (re-fetch those days, or an
+integrity pass that reads parquet metadata only).
 
 **Status, in one command** (file names, mtimes and the log only; never opens a day file):
 
