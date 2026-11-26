@@ -27,7 +27,7 @@ only, repeatedly.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
   weekday-matched control at the declared bar; criterion 4 passes; criterion 5 is
   pending the measured spread. Figures in `HANDOFF.md` §2 and the spec's *Results*.
-- **Tests:** 118 pass after Tasks 5 and 6 (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
+- **Tests:** 128 pass after Tasks 5 and 6, the hybrid clock and the EWMA seed fix (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
 
 ## 2. The fetch
 
@@ -81,23 +81,30 @@ linked, and reports every stage as untouched. Request counts (not just days):
    followed, and the spec 005 restatement (on the user's decision, confirmed from a fresh
    clone) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
 4. ~~**Task 6, the volatility model**~~ **Done 2026-11-26** (`src/usdjpy/vol.py`). What
-   was built, the real-data checks, and two findings for later specs (spec 007 must use
-   the bid and declare its minute-of-week clock) are in `HANDOFF-2026-11-25-during-fetch.md`
-   Task 6.
-5. **Spec 003 re-run check** (added 2026-11-26 on the user's instruction). Spec 003's
-   *Results* say "Run 2026-11-25"; the spec was last changed at 02:15 that day, before
-   the HistData DST fix (`a1dfccb`, 17:42), so like spec 005 its figures (max |t_hc|
-   1.80 against the 2.81 bar; MDE Sharpe 0.97) may not reproduce on current code. Its
-   exec-hour correction is already in (`d541d7d`). Method, as for spec 005 (Task 5 record):
-   run `scripts/rate_path_study.py` on current code; if it differs from the published
-   figures, confirm the difference is the DST fix by re-running with
-   `datasets.fix_histdata_dst` disabled, which should reproduce them exactly. Also
-   decide with the user whether to fix `signals.ewma_vol`'s seed, which uses the
-   full-sample variance (future data; found in Task 6): a fix moves spec 003's figures
-   too, so any restatement should carry both at once. **Report
-   before editing anything:** restating spec 003, and its copies in `CLAUDE.md` *Current
-   state*, `HANDOFF.md` §1 and §4, is the user's decision. If restated, confirm on a fresh
-   clone first, as spec 005 was.
+   was built, the real-data checks, the user's choice of the hybrid minute-of-week clock
+   (for spec 007 too), and the finding that spec 007 should use the bid are in
+   `HANDOFF-2026-11-25-during-fetch.md` Task 6.
+5. ~~**Spec 003 re-run check**~~ **Done 2026-11-26: restated, with the `ewma_vol` fix,
+   on the user's decision.**
+   - *Attribution.* Spec 003's first table reproduces exactly (every printed figure) on
+     current code with **both** the HistData DST fix and the exec-hour spread fix undone
+     and the old seed. The note here had said the exec-hour fix was already in; it was in
+     the commit that carried the table (`f35dfb3`) but the table predates it. The spec's
+     MDE paragraph (0.0613) matches the code with only the DST fix undone, so it was
+     computed later: mixed provenance, now gone.
+   - *Decisions (user, 2026-11-26).* (a) Fix `signals.ewma_vol`'s seed and restate spec 003
+     once with it, rather than twice. (b) Fix `stats.ewma_standardise` now, though no
+     result used it. Both now share `stats.ewma_variance_past` (expanding mean of past
+     squared returns for 20 days, then the recursion): v[0] had been the variance of
+     the whole series, future included. The seed alone moves spec 003's t by at most
+     0.01; the variant that drops a 20-day burn-in instead moved h=10 by 0.24 through
+     sample composition, so it was not used. `ewma_standardise` now returns len(r) - 1
+     values.
+   - *Verified first.* Code committed alone (`2ecd0c6`), cloned fresh: 128 tests pass,
+     `rate_path_study.py --data` stdout and CSV byte-identical to the run the figures came
+     from, and the synthetic harness section unchanged. Only then were spec 003 *Results*,
+     `CLAUDE.md` (inference rule, *Current state*), `HANDOFF.md` §1 and §4 rewritten.
+   - *Result.* max |t_hc| 1.80 → 1.78, MDE Sharpe 0.97 → 0.98; verdict unchanged.
 6. **Spec 001 housekeeping** (added 2026-11-26 on the user's instruction). Spec 001's
    *Results* section still reads "_Pending._ Run `python scripts/gotobi_study.py`",
    while `CLAUDE.md` *Current state* and `HANDOFF.md` §1 list it as "upheld, mechanism

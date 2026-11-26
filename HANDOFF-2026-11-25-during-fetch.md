@@ -346,7 +346,7 @@ runs a strategy:
 ### Task 6: Tier 0b volatility model — **DONE 2026-11-26**
 
 > **Status:** `src/usdjpy/vol.py`, tested on synthetic data with known answers
-> (`tests/test_vol.py`, 23 tests; 118 pass in all), checked on real pre-holdout bars by
+> (`tests/test_vol.py`, 33 tests with the hybrid clock and seed fix; 128 pass in all), checked on real pre-holdout bars by
 > `scripts/vol_model_check.py`. No strategy run; nothing predicts returns, so no trial
 > budget is spent. The design was fixed before any real-data fit (stated in the session);
 > one choice was then changed after the real-data check, below, and is marked as such.
@@ -375,9 +375,20 @@ runs a strategy:
 >   empties the new regime's cells for ~8 weeks. **Changed after the real-data check:** the
 >   first version counted the last 12 observations of a cell with no age limit; that
 >   silently borrowed last year's same-DST weeks, breaking "previous 60 trading days", and
->   hid the 66% figure. Spec 007 must declare its clock: one clock (smears events on the
->   other clock for ~12 weeks after each change), the split (loses a third of minutes),
->   or a count-based split (borrows last year's weeks).
+>   hid the 66% figure.
+> - **Decision (user, 2026-11-26): the hybrid clock.** Asked whether one clock could work
+>   with New York events shifted by the time-zone difference: yes, if New York-band minutes
+>   (03:00-17:10 ET, fixed before measuring) are keyed in New York time and the rest in JST,
+>   in **separate** key spaces (one shifted JST key space collides: 420 keys in an EDT week
+>   hold two market states). `clock="hybrid"` (`vol.HYBRID_NY_BAND`), commit `2ecd0c6`.
+>   Measured on HistData 2015-2024 (`scripts/vol_model_check.py` section 3): 96.1% of minutes
+>   have a baseline; in the 4 weeks after each of 20 US DST changes, Thursday 08:30 ET is
+>   over 5x baseline on 5.1% of minutes and 09:55 JST on 3.5%, as the matching single clock
+>   gives, against 30.8% at 08:30 ET on a Tokyo clock and 18.8% at 09:55 JST on a New York
+>   clock; the DST split has no baseline at all in those weeks. Cost: ~1 point of coverage
+>   at the band-edge JST cells, and London (EU DST) an hour off ~4 weeks a year. Adopted for
+>   minute-of-week work, **spec 007's s_m included**; spec 007's text is unchanged until it
+>   is run, and its run declares `clock="hybrid"`.
 > - **Sizing:** `vol_target_weight` (spec 014: 10%, cap 2; spec 017 O2: 8%); NaN vol
 >   gives NaN, never a capped full position. Feeds `portfolio.simulate` targets.
 >
@@ -388,10 +399,10 @@ runs a strategy:
 >   those minutes (a 5x rule fires on 0.9% of days on the mid against 5.7% on the bid)
 >   rather than creating false ones. *(My review note this session said they would create
 >   false shocks; the measurement says otherwise.)*
-> - **`signals.ewma_vol` and `stats.ewma_standardise` seed with the full-sample variance**,
->   future data included. Spec 003 uses `ewma_vol`. Left unchanged because fixing it moves
->   spec 003's figures; it belongs to the spec 003 re-run check
->   (`HANDOFF-2026-11-26-remaining.md` §3 item 5).
+> - **`signals.ewma_vol` and `stats.ewma_standardise` seeded with the full-sample
+>   variance**, future data included. **Fixed 2026-11-26 on the user's decision**
+>   (`stats.ewma_variance_past`), with spec 003 restated once to carry it: see
+>   `HANDOFF-2026-11-26-remaining.md` §3 item 5.
 
 HAR-RV on 5-minute realised volatility, the minute-of-week volatility profile, and
 vol-target sizing, which specs 007 and 017 use. This is infrastructure, not a test.
