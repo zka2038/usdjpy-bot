@@ -4,7 +4,8 @@ How to start a fresh CLI session on the remaining work. It covers the workspace,
 the decisions not to reopen, and how to work. **What** remains, and in what order,
 is in `HANDOFF-2026-11-26-remaining.md`. This file does not repeat it.
 
-**Read first, in this order:**
+**Read first, in this order** (all handoffs are in `handoffs/` since 2026-11-26):
+0. `handoffs/README.md`: the roadmap, the current priority list, and the handoff index.
 1. `CLAUDE.md`: standing rules. It overrides everything else.
 2. `HANDOFF-2026-11-26-remaining.md`: what remains, the fetch procedure, and what
    needs the user's go-ahead.

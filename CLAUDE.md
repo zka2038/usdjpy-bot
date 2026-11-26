@@ -4,8 +4,12 @@ Research → backtest → live pipeline for USDJPY, executed through IBKR. Layer
 pandas event studies and predictive regressions in this repo; most ideas should die
 here, cheaply. Layer 2 is NautilusTrader with bid/ask fills.
 
-**Start with `HANDOFF.md`** — state, the next action, and the numbers that were
-wrong at some point so they are not inherited.
+**Start with `handoffs/README.md`**: the roadmap, the priority list, and the index of
+every handoff, with the read order. `handoffs/HANDOFF.md` holds the project state, the
+next action, and the numbers that were wrong at some point so they are not inherited.
+**Every handoff lives in `handoffs/`**, and each new one is added to that README's index
+and roadmap (convention in the README). Elsewhere, handoffs are cited by file name alone,
+which stays unique inside the folder.
 
 **Read the relevant spec in `specs/` before touching any study.** Each has its kill
 criteria declared before testing. Do not revise kill criteria after seeing results.
@@ -301,6 +305,6 @@ and its Gotobi specificity is not established. Spec
 is larger than any effect this repo has found, so new hypotheses should be
 intraday, or on MJY, or not worth testing.
 
-Context: `HANDOFF.md` first, then
+Context: `handoffs/README.md` first, then
 `Research/Strategy/Hypothesis Review H1 to H3.md` and
 `Research/Strategy/H1 Intervention Reaction.md`.
