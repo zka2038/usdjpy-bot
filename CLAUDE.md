@@ -28,7 +28,7 @@ Base round trip is 0.836 pips ex-spread at 159; `PESSIMISTIC` is 1.236.
 IBKR's skim is 2.0% a year of notional in either direction (2.5% under
 `PESSIMISTIC`), which is **0.883 pips per calendar day held** at 159, before the
 rate differential. Five calendar days is 4.42 pips. No effect found in this repo
-exceeds 2.1 pips, so **spot held at a days-to-week horizon is taxed past
+exceeds 2.3 pips, so **spot held at a days-to-week horizon is taxed past
 everything measured here** — spec 005's three variants each gave up roughly 5
 pips a trade to financing alone. Horizon is a cost question, never a power
 question (see "Two bars"). Intraday holds and MJY futures avoid the skim; spot
@@ -36,24 +36,36 @@ held overnight does not. Spec 004 holds ~2 hours with zero nights and is
 unaffected.
 
 **Compare against control days, not zero.** An effect present on every day is
-time-of-day drift, not the flow you hypothesised.
+time-of-day drift, not the flow you hypothesised. And when the treatment rule moves
+dates (a Gotobi date on a weekend rolls back to Friday), match the control on
+weekday: `events.stratified_compare`. Spec 004's B is 44% Fridays against 11% in C,
+and matching takes its B-vs-C t from 3.28 to 1.91.
 
 **The trial count is a shared, depletable resource.** Every hypothesis run on
 USDJPY 2007-2024 raises `stats.expected_max_sharpe` for *every* result on that
-sample, retroactively. Spec 004's prefix leg (per-trade SR 0.1062, n=882) passes
-the Deflated Sharpe hurdle of 0.95 **up to N=8 trials and fails from N=9**: at the
-5 specs run so far DSR is 0.9744, at N=18 it is 0.9013. So the repo has **three
-hypotheses of headroom** on this sample, and specs 006-018 are thirteen. Run them
-on other pairs or other periods, or accept that they cost spec 004 its clearance.
-Declare in each new spec which sample it spends. `stats.deflated_sharpe` is the
-arbiter, not the t=3 bar below, which was set without reference to any trial
-count. (The 0.9744 also assumes skew 0 and Pearson kurtosis 3; FX trade returns
-are fat-tailed, so compute them from the trade series and expect it to fall.)
+sample, retroactively. **Count specs, not legs or variants** (user decision,
+2026-11-25; revisit if specs converge): five have been run. On DST-corrected bars,
+with the trade series' own skew and Pearson kurtosis (`scripts/004_deflated_sharpe.py`),
+spec 004 passes the Deflated Sharpe hurdle of 0.95 at N=5 on both legs (prefix
+0.990, per-trade SR 0.1168, n=881; postfix 0.981, SR 0.1087, n=947), up to **N=17
+on prefix and N=11 on postfix**. The prefix leg's positive skew is one trade
+(2011-03-18, +209 pips); without it skew is −0.50 and the limit is **N=10**. So the
+repo has **about five hypotheses of headroom** on this sample, and specs 006-018 are
+thirteen: at N=18 neither leg clears (0.949 / 0.924). Run them on other pairs or
+other periods, or accept that they cost spec 004 its clearance. Declare in each new
+spec which sample it spends. `stats.deflated_sharpe` is the arbiter, not the t=3 bar
+below, which was set without reference to any trial count. **The DSR tests the
+effect against zero, not against weekday-matched control**, where spec 004 is t
++1.91 / +2.28, below its own 2.5 bar: headroom on a result whose Gotobi specificity
+is not established is a ceiling, not a licence. (Superseded: "SR 0.1062, n=882,
+passes to N=8, three of headroom", from before the DST fix and assuming normal
+moments. Computed moments raised the prefix DSR, not lowered it as was expected.)
 
 **The holdout cannot rescue a marginal result.** Freezing spec 004 and spending
 the holdout looks like the clean way out and is not: 1.43 years to the 2026-06-05
-data end is ~70 prefix trades, SE 2.328 pips against an effect of 2.068, so the
-expected t is 0.89 and power is **14% at alpha=0.05**, 23% at 0.10. It would
+data end is ~70 prefix trades, SE 2.355 pips against an effect of 2.301
+(DST-corrected), so the expected t is 0.98 and power is **16% at alpha=0.05**, 25%
+at 0.10, and lower again against weekday-matched control. It would
 almost certainly return an uninformative null, and the holdout is spent once.
 Check the power of a holdout test before spending it.
 
@@ -74,9 +86,13 @@ or it understates the bar by 19%. And SE(rho) is `se_ratio/sqrt(n)`, not
 **And do not read the MDE as a detectability floor.** MDE@80% is the effect that
 would be found 80% of the time; the significance threshold is lower. An effect
 between the two is significant in this sample and simply under-powered for
-replication. Spec 004's prefix leg is +2.068 pips against a t=2.5 threshold of
-1.640 and an MDE@80% of 2.192: significant at t=3.15, with 74% power. Quote the
-power, not a verdict on whether the effect "reached" the MDE.
+replication. Spec 004's prefix leg is +2.301 pips against a t=2.5 threshold of
+1.659 and an MDE@80% of 2.218: significant at t=3.47. Quote the power, not a
+verdict on whether the effect "reached" the MDE, and know what kind of power it is:
+power against the *observed* effect is Φ(t − 2.5), a restatement of t, and the
+annual Sharpe is t/√years. The probability that a repeat sample clears the bar,
+allowing for estimation error, is Φ((t − 2.5)/√2): 75% here, not the 83% observed
+power.
 
 **Harness recovery is not power.** `signals.synthetic_check` confirms the code can
 find a signal; it says nothing about whether this sample can. Spec 003's harness
@@ -174,7 +190,8 @@ All of these manufacture *positive* results from no signal.
    long entry too low, short exit too low, same sign and same size. A known
    constant, correctable by adding a spread estimate, not a direction-dependent
    distortion. HistData timestamps are **NY local WITH DST**, not the fixed EST
-   its own FAQ claims (verified in `docs/DATA.md`); trust the catalogue.
+   its own FAQ claims (verified in `docs/DATA.md`); trust the catalogue. Except
+   trap 8.
 6. **Synthetic spread must be keyed on the EXECUTION hour, not the bar's hour.**
    `events.quote_at(ts)` fills on the bar at `ts - 1min`, so the bar labelled T
    is the fill for a trade at T+1min. Keying on the bar's own hour overcharged
@@ -191,14 +208,30 @@ All of these manufacture *positive* results from no signal.
    patterns are crisp and only the rollover moves. Specs 001/004 trade
    08:00-11:00 and are unaffected; anything trading JST 6-8 must key the profile
    on (JST hour, NY DST flag).
+8. **From 2019 HistData's raw clock changes on EU DST dates, not US ones.** In the
+   weeks where the two disagree (2nd to last Sunday of March; last Sunday of
+   October to 1st Sunday of November) the stored bar labelled T held the true T+60
+   price. `datasets.fix_histdata_dst` corrects it in the loader and refuses a file
+   that already looks correct; read HistData only through `load_minute`, and re-run
+   `scripts/histdata_alignment_check.py` after any rebuild. Month-level checks hid
+   it, because the error is one week inside otherwise aligned months: check
+   alignment day by day, and against an independent timestamp (the Fed H.10 noon
+   rate) where no second price source exists. It moved 21 / 22 of spec 004's B
+   trades and strengthened the result, mostly through three volatile days.
 
 ---
 
 ## Gotchas in this repo
 
 - `calendars.gotobi_days()` **includes the last business day of the month**, so
-  spec 001's treatment group bundles two mechanisms. Month-end is 17% of those days
-  and roughly 28% of the measured effect. `specs/004` separates them.
+  spec 001's treatment group bundles two mechanisms. Month-end is 16.7% of those
+  days pre-holdout and roughly 28% of the measured effect. `specs/004` separates them.
+- **Roll-back rules make calendar groups differ by weekday.** A Gotobi date on a
+  weekend rolls back to Friday, and one inside a holiday break rolls back onto the
+  day before it, so B is 44% Fridays and pre-closure days are B or A by
+  construction (none of the 41 Mon–Thu days before a 4+ day break in 2007–2024 is
+  C). Non-Gotobi Fridays have their own Tokyo-morning move. See the hard rule
+  "Compare against control days, not zero" and `scripts/004_weekday_breakdown.py`.
 - CME `6J`/`MJY` are quoted **USD per JPY — the inverse of spot**. One USDJPY pip
   is 0.396 MJY ticks = $0.494/contract, not one tick. MJY maintenance margin is
   $280 and settlement is **deliverable**.
@@ -219,8 +252,8 @@ All of these manufacture *positive* results from no signal.
   February to July 2023**. Spec 004's prefix entry is 23:00 UTC, inside that
   window; its 00:55 exit and the entire postfix leg (00:55 -> 02:00) are outside
   it. So the gap lands on the entry leg of the only surviving result and nowhere
-  else. Count the 2023 treatment days actually filled before quoting spec 004's
-  prefix Sharpe again.
+  else. Counted on DST-corrected bars: 46 of 60 2023 prefix B days trade; the gap
+  fill restores the rest.
 - `data/` and `results/` are gitignored. A fresh clone has no data; symlink it or
   work in the clone that has it.
 
@@ -230,32 +263,40 @@ All of these manufacture *positive* results from no signal.
 
 | Spec | Status | Note |
 |---|---|---|
-| 001 gotobi / Tokyo fix | **upheld, mechanism unconfirmed** | 004 showed B differs from C, which restates 001's own claim on a subset. Its A-vs-B separation was uninformative, so month-end is NOT ruled out as a contributor. Do not restate 001 as Gotobi-proper on 004's authority |
+| 001 gotobi / Tokyo fix | **upheld, mechanism unconfirmed** | 004 showed B differs from unmatched C, which restates 001's own claim on a subset; matched by weekday it does not clear 2.5. Its A-vs-B separation was uninformative, so month-end is NOT ruled out as a contributor. Do not restate 001 as Gotobi-proper on 004's authority |
 | 002 intervention disclosure | **rejected** | real effect, 1.3 episodes/yr, SR 0.24-0.43 |
 | 003 rate-path revision | **rejected below SR 0.73; undecidable 0.73-0.98** | max abs(t_hc) 1.80 vs 2.81 bar, right sign at all 4 h. NOT a well-powered null: MDE SR is 0.97 against a 0.73 tradeability bar |
-| 004 turn-of-month separation | **effect confirmed; separation unanswerable** | B vs C net of costs: prefix +2.068p t +3.15 (SR 0.743, clears the t=3 bar of 0.71), postfix +1.561p t +3.11; power 74% / 73%. Its declared A-vs-B test gives t -1.37 / +0.20 at MDE 2.3x the effect, so month-end is not ruled out. Tradeability still blocked on spread provenance |
+| 004 turn-of-month separation | **B beats zero and unmatched control; Gotobi-specific effect not established; separation unanswerable** | DST-corrected. B net of base costs vs zero: prefix +2.301p t +3.47, postfix +1.683p t +3.34. B vs unmatched C (mid): t +3.28 / +2.80; **vs weekday-matched C: t +1.91 / +2.28, below 2.5**. A-vs-B t -1.39 / +0.21, MDE ~2x the effect: month-end not ruled out. Kill criterion 4 passes; 5 pending the measured spread (gap fill running) |
 | 005 rate-path trade test | **rejected** | independent H3 retest, all three variants; NW t -0.19/+0.47/-0.04 vs 3.0 bar. Financing alone took ~5 pips/trade |
 
-Eight signal families examined, six dead. Spec 004 is the only surviving effect:
-Gotobi-proper differs from control on cost-free mid prices, 6/6 sub-period cells
-positive, and net of base costs prefix +2.068 pips at t +3.15 (Sharpe 0.743,
-clearing the t=3 bar of 0.71) with postfix +1.561 at t +3.11. Power against
-effects that size is 74% and 73%, so replication is likelier than not but not
-assured. That 0.74 needs the exec-hour fix, which reached the repo only in the
-commit that added this sentence.
-But it is 1.5-2.1 pips against a spread uncertainty of 0.36 measured versus 0.9-1.8
-plausible for 2007-2024, so **tradeability is blocked on spread provenance, not on
-statistics.** Under era-scaled spreads the Sharpe falls to 0.44, below detection.
+Eight signal families examined, six dead. Spec 004 is the only surviving effect,
+and the 2026-11-25 review narrowed it. On DST-corrected bars, B (Gotobi-proper)
+Tokyo mornings beat zero net of base costs (prefix +2.301 pips, t +3.47; postfix
++1.683, t +3.34; 6/6 sub-period cells positive) and beat unmatched control days.
+But B is 44% Fridays against 11% in C, non-Gotobi Fridays rise on their own, and
+**matched by weekday, B vs C is t +1.91 / +2.28, below the declared 2.5 bar**. A
+Tokyo-morning USD rise on B days is established; that it is Gotobi settlement
+rather than a Friday or pre-closure effect is not. The matched MDE (2.73 / 2.14
+pips) is above the matched estimates, so this is under-powered, not refuted.
 
-What would settle it: genuine Dukascopy bid/ask for 2007-2024 via
-`scripts/download.py`, or enough post-2024-06 month-ends to test on real bid/ask.
+Tradeability: kill criterion 4 (`PESSIMISTIC`) passes. Criterion 5 is evaluated per
+trade and is pending the measured spread. On the field's standard test (net t under
+`PESSIMISTIC`) the cost headroom before t falls to 2.5 is 0.24 pips (prefix) and
+0.03 (postfix) at the assumed 0.36 / 0.27-pip spreads, so the measured spread
+decides it (`docs/research/Gap fill cost methodology standards.md`).
+
+What would settle both: the spec 004 gap fill. `scripts/download_gap_fill.py` is
+fetching Dukascopy bid/ask for 2007-2014 and a 2015-2024 spread sample (status in
+`specs/README.md`, *Dukascopy fetch*). Its analysis, including the weekday-matched
+test, is pre-declared in spec 004 *Gap fill*; no filled data has been viewed.
 
 Specs 003 and 005 test H3 independently, by different methods, and both reject it.
 005 defers to 003's standardised regression as the proper test and keeps its own
 raw-pips slope (t +2.19) as descriptive only. Neither supersedes the other.
 
 The binding constraint is no longer method, and no longer purely hypothesis count -
-it is that the one surviving effect is the same size as an unmeasurable cost. Spec
+it is that the one surviving effect is the same size as a cost not yet measured,
+and its Gotobi specificity is not established. Spec
 005 adds a second constraint on top: at a days-to-week horizon on spot, financing
 is larger than any effect this repo has found, so new hypotheses should be
 intraday, or on MJY, or not worth testing.

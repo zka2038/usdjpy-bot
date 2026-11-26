@@ -9,6 +9,7 @@ Historical spreads were wider (esp. 2007-2012), so always also check PESSIMISTIC
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from .config import DATA_DIR
@@ -42,7 +43,8 @@ def _hourly_spread_profile(allow_fallback: bool = False) -> pd.Series:
     return prof.reindex(range(24)).fillna(FALLBACK_SPREAD)
 
 
-def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> pd.DataFrame:
+def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min",
+                        profile: pd.Series | None = None) -> pd.DataFrame:
     """Attach a synthetic ask keyed on the EXECUTION hour, not the bar's own hour.
 
     `events.quote_at(ts)` fills on the bar at `ts - 1min`, so the bar labelled T is
@@ -51,21 +53,87 @@ def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> 
     spread (0.600 pips, still decaying from the 06:00 NY rollover spike) instead of
     hour 8 (0.360) - 0.24 pips a trade on a 1.8-pip effect. `exec_lag` must track
     `quote_at`'s offset; if that changes, change this.
+
+    `profile` (spread in price units by JST hour) overrides the Eightcap profile;
+    tests pass one so they need no data file.
     """
-    prof = _hourly_spread_profile()
+    prof = _hourly_spread_profile() if profile is None else profile
     exec_hour = (bid.index + pd.Timedelta(exec_lag)).tz_convert("Asia/Tokyo").hour
     spread = prof.reindex(exec_hour).to_numpy()
     return pd.DataFrame({"bid": bid.astype("float64"), "ask": bid.to_numpy() + spread, "spread": spread,
                          "source": source}, index=bid.index)
 
 
+HISTDATA_EU_DST_FROM = 2019
+
+
+def us_eu_dst_mismatch_windows(years) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """UTC spans in which US and EU clocks disagree, one pair per year:
+    US spring change (2nd Sunday of March, 07:00 UTC) to EU spring change (last
+    Sunday of March, 01:00 UTC), and EU autumn change (last Sunday of October,
+    01:00 UTC) to US autumn change (1st Sunday of November, 06:00 UTC). Every
+    boundary falls inside the FX weekend close."""
+    def sundays(y, m):
+        d = pd.date_range(f"{y}-{m:02d}-01", periods=31, freq="D", tz="UTC")
+        return d[(d.month == m) & (d.day_of_week == 6)]
+    out = []
+    for y in years:
+        out.append((sundays(y, 3)[1] + pd.Timedelta("7h"), sundays(y, 3)[-1] + pd.Timedelta("1h")))
+        out.append((sundays(y, 10)[-1] + pd.Timedelta("1h"), sundays(y, 11)[0] + pd.Timedelta("6h")))
+    return out
+
+
+def fix_histdata_dst(s: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
+    """Shift HistData bars +60 min inside the US/EU DST mismatch weeks from 2019 on.
+
+    The parquet was built by localising HistData's raw stamps to America/New_York.
+    That is right everywhere except here: from 2019 HistData's raw clock changes on
+    EU DST dates, so in the weeks between the US and EU changes the bar labelled T
+    carries the true T+60 price. Found by scripts/histdata_alignment_check.py: 75
+    dates against Dukascopy (2019, 2021-2023) and Eightcap (2024), all of them in a
+    mismatch window, all at +60; 2015-2018 have none. 2020, Nov 2023 and Mar 2024
+    have no second source and were checked on the reopen hour and intraday
+    volatility profile instead (same script). Windows start and end in the weekend
+    close, so the shift cannot collide with an unshifted bar.
+
+    Guard against double correction: a file with the EU-clock error reopens on the
+    Sundays inside these windows labelled 20:xx UTC (true 21:00), a correct file at
+    21:xx. If the Sunday reopens inside the windows are mostly at 21:00 or later, the
+    file has already been corrected (e.g. rebuilt), and shifting would break it, so
+    this raises instead. Re-run scripts/histdata_alignment_check.py after any rebuild.
+    """
+    idx = s.index
+    years = range(max(idx[0].year, HISTDATA_EU_DST_FROM), idx[-1].year + 1)
+    windows = us_eu_dst_mismatch_windows(years)
+    mask = np.zeros(len(idx), dtype=bool)
+    for a, b in windows:
+        mask |= (idx >= a) & (idx < b)
+    if len(idx) > 1:
+        reopen = idx[1:][(((idx[1:] - idx[:-1]) > pd.Timedelta("24h"))) & mask[1:]]
+        reopen = reopen[reopen.day_of_week == 6]
+        if len(reopen) and np.mean(reopen.hour >= 21) > 0.5:
+            raise AssertionError(
+                f"HistData bars already look DST-correct: {int(np.sum(reopen.hour >= 21))} of "
+                f"{len(reopen)} Sunday reopens inside the US/EU mismatch windows are at 21:00 UTC "
+                "or later, not 20:xx. fix_histdata_dst would shift them an hour late. Was the "
+                "file rebuilt? Re-run scripts/histdata_alignment_check.py.")
+    new = idx.where(~mask, idx + pd.Timedelta(minutes=60))
+    out = s.copy()
+    out.index = new
+    out = out.sort_index()
+    if out.index.has_duplicates:
+        raise AssertionError("HistData DST shift produced duplicate timestamps")
+    return out
+
+
 def load_minute(source: str = "combined") -> pd.DataFrame:
-    """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04, complete),
+    """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04; gappy Feb-Jul 2023, DST-corrected),
     'eightcap' (2024-06 to 2026-06, real bid/ask), or 'combined' (best available per period)."""
     if source == "dukascopy":
         return _with_synthetic_ask(pd.read_parquet(BARS / "dukascopy_bid_2007_2023.parquet")["close"], "dukascopy")
     if source == "histdata":
-        return _with_synthetic_ask(pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")["close"], "histdata")
+        bid = fix_histdata_dst(pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")["close"])
+        return _with_synthetic_ask(bid, "histdata")
     if source == "eightcap":
         e = pd.read_parquet(BARS / "eightcap_bidask_2024_2026.parquet")
         return pd.DataFrame({"bid": e["bid"].astype("float64"), "ask": e["ask"].astype("float64"),

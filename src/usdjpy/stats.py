@@ -211,6 +211,19 @@ def deflated_sharpe(sr: float, n_obs: int, skew: float, kurt_pearson: float,
     return {"sr": sr, "sr_0": sr0, "dsr": dsr, "passes": dsr > 0.95}
 
 
+def max_trials_passing(sr: float, n_obs: int, skew: float, kurt_pearson: float,
+                       hurdle: float = 0.95, n_max: int = 200) -> int:
+    """Largest trial count whose deflated Sharpe still exceeds `hurdle` (0 if even
+    N=1 fails). DSR falls monotonically in N, so scan up."""
+    last = 0
+    for k in range(1, n_max + 1):
+        if deflated_sharpe(sr, n_obs, skew, kurt_pearson, k)["dsr"] > hurdle:
+            last = k
+        else:
+            break
+    return last
+
+
 def pips_sd_from_annual_vol(ann_vol: float, price: float, days: int) -> float:
     """Convert an annualised vol into the sd of a `days`-day move, in pips."""
     return ann_vol / np.sqrt(252) * np.sqrt(days) * price / PIP

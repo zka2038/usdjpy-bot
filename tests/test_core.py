@@ -82,3 +82,79 @@ def test_quote_at_rejects_stale():
     bars = pd.DataFrame({"bid": [1.0, 2.0, 3.0], "ask": [1.0, 2.0, 3.0]}, index=idx)
     assert quote_at(bars, pd.Timestamp("2024-01-05 00:02", tz="UTC"))["bid"] == 2.0
     assert quote_at(bars, pd.Timestamp("2024-01-05 01:00", tz="UTC")) is None
+
+
+def test_download_tree_refuses_to_mix_full_and_partial(tmp_path):
+    from usdjpy.dukascopy import TOKYO_MORNING_HOURS, _claim_tree, download_range
+
+    # Pre-manifest tree with files (like data/USDJPY/) counts as full-day.
+    legacy = tmp_path / "full" / "USDJPY" / "2003"
+    legacy.mkdir(parents=True)
+    pd.DataFrame({"bid": [1.0]}).to_parquet(legacy / "2003-05-05.parquet")
+    with pytest.raises(ValueError, match="full-day"):
+        download_range("USDJPY", dt.date(2003, 5, 6), dt.date(2003, 5, 6),
+                       tmp_path / "full", hours=TOKYO_MORNING_HOURS)
+    assert not (tmp_path / "full" / "USDJPY" / "_hours.json").exists()
+
+    # Fresh tree is claimed by its first writer; a mismatch is refused either way.
+    tokyo = tmp_path / "tokyo" / "USDJPY"
+    _claim_tree(tokyo, TOKYO_MORNING_HOURS)
+    _claim_tree(tokyo, (0, 1, 22, 23))             # same set, any order
+    with pytest.raises(ValueError):
+        _claim_tree(tokyo, None)
+    with pytest.raises(ValueError):
+        _claim_tree(tokyo, (0, 1))
+
+
+def test_download_trims_closed_hours_and_honours_days(tmp_path, monkeypatch):
+    from usdjpy import dukascopy
+    calls = []
+    monkeypatch.setattr(dukascopy, "fetch_day",
+                        lambda sym, day, session, hours, pause: calls.append((day, hours)) or dukascopy._empty())
+    # Thu 2023-01-05 .. Mon 2023-01-09
+    n = dukascopy.download_range("USDJPY", dt.date(2023, 1, 5), dt.date(2023, 1, 9), tmp_path,
+                                 hours=dukascopy.TOKYO_MORNING_HOURS)
+    assert calls == [(dt.date(2023, 1, 5), (0, 1, 22, 23)), (dt.date(2023, 1, 6), (0, 1)),
+                     (dt.date(2023, 1, 8), (22, 23)), (dt.date(2023, 1, 9), (0, 1, 22, 23))]
+    assert n == 12
+    calls.clear()
+    dukascopy.download_range("USDJPY", dt.date(2023, 1, 10), dt.date(2023, 1, 12), tmp_path,
+                             hours=dukascopy.TOKYO_MORNING_HOURS, days={dt.date(2023, 1, 11)})
+    assert [d for d, _ in calls] == [dt.date(2023, 1, 11)]
+
+
+def test_fetch_day_rejects_bad_hours():
+    from usdjpy.dukascopy import fetch_day
+    with pytest.raises(ValueError):
+        fetch_day("USDJPY", dt.date(2024, 1, 2), hours=(23, 24))
+
+
+def _digest(idx):
+    import hashlib
+    return len(idx), hashlib.sha1(",".join(idx.strftime("%Y-%m-%d")).encode()).hexdigest()[:12]
+
+
+def test_gotobi_days_unchanged_for_month_start_ranges():
+    """Output pinned to the pre-fix implementation (2026-11-25) on the ranges the studies use."""
+    assert _digest(gotobi_days(dt.date(2007, 1, 1), dt.date(2024, 12, 31))) == (1291, "32901c57566b")
+    assert _digest(gotobi_days(dt.date(2015, 1, 1), dt.date(2024, 12, 31))) == (717, "c536f8eb7394")
+    assert _digest(gotobi_days(dt.date(2007, 1, 1), dt.date(2026, 6, 5))) == (1393, "48e6884dc2d2")
+
+
+@pytest.mark.parametrize("start", [dt.date(2007, 1, 31), dt.date(2015, 3, 28), dt.date(2023, 12, 30),
+                                   dt.date(2019, 5, 6)])
+def test_gotobi_days_late_month_start(start):
+    """Used to loop until the date overflowed when start was late in a month. Any start
+    must give the month-start result clipped to start."""
+    end = dt.date(start.year + 1, 6, 30)
+    full = gotobi_days(dt.date(start.year, start.month, 1), end)
+    assert list(gotobi_days(start, end)) == list(full[full >= pd.Timestamp(start)])
+
+
+def test_turn_of_month_groups_partition():
+    from usdjpy.calendars import jp_business_days, turn_of_month_groups
+    g = turn_of_month_groups(dt.date(2007, 1, 1), dt.date(2024, 12, 31))
+    a, b, c = g["A_month_end"], g["B_gotobi_proper"], g["C_control"]
+    assert len(a.intersection(b)) == len(a.intersection(c)) == len(b.intersection(c)) == 0
+    assert len(a) + len(b) + len(c) == len(jp_business_days(dt.date(2007, 1, 1), dt.date(2024, 12, 31)))
+    assert (len(a), len(b)) == (216, 1075)
