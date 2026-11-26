@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+import pandas as pd
+
 PIP = 0.01  # USDJPY
 
 
@@ -46,6 +49,29 @@ class CostModel:
         """
         carry_pct = side * (usd_rate_pct - jpy_rate_pct) - self.financing_skim_pct
         return price * carry_pct / 100 * days / 360 / PIP
+
+
+# Spread multipliers on the 2024-26 synthetic profile, by the era a trade's bars come
+# from: spec 004's "era" sensitivity column (x2 for "era x2"). JUDGEMENT, NOT
+# MEASUREMENT: a stress column, never the governing one. Keyed on the entry bar's
+# source; "dukascopy_tree" (the spec 004 gap-fill tree) spans both eras, so it is
+# keyed on date with the same boundary as the bid-only sources it fills.
+ERA_SPREAD_MULT = {"eightcap": 1.0, "histdata": 2.5, "dukascopy": 5.0}
+ERA_TREE_BOUNDARY = "2015-01-01"
+
+
+def era_spread_multiplier(sources, dates) -> np.ndarray:
+    """Era multiplier per trade from its entry-bar source and (JST) date."""
+    src = pd.Series(list(sources))
+    dts = pd.DatetimeIndex(dates)
+    unknown = set(src) - set(ERA_SPREAD_MULT) - {"dukascopy_tree"}
+    if unknown:
+        raise ValueError(f"no era multiplier for sources {unknown}")
+    k = src.map(ERA_SPREAD_MULT).to_numpy(dtype=float, copy=True)
+    tree = (src == "dukascopy_tree").to_numpy()
+    k[tree] = np.where(dts[tree] < pd.Timestamp(ERA_TREE_BOUNDARY), ERA_SPREAD_MULT["dukascopy"],
+                       ERA_SPREAD_MULT["histdata"])
+    return k
 
 
 # Pessimistic variant to stress-test anything that looks good.

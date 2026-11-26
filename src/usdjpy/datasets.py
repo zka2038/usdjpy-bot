@@ -43,7 +43,8 @@ def _hourly_spread_profile(allow_fallback: bool = False) -> pd.Series:
     return prof.reindex(range(24)).fillna(FALLBACK_SPREAD)
 
 
-def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> pd.DataFrame:
+def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min",
+                        profile: pd.Series | None = None) -> pd.DataFrame:
     """Attach a synthetic ask keyed on the EXECUTION hour, not the bar's own hour.
 
     `events.quote_at(ts)` fills on the bar at `ts - 1min`, so the bar labelled T is
@@ -52,8 +53,11 @@ def _with_synthetic_ask(bid: pd.Series, source: str, exec_lag: str = "1min") -> 
     spread (0.600 pips, still decaying from the 06:00 NY rollover spike) instead of
     hour 8 (0.360) - 0.24 pips a trade on a 1.8-pip effect. `exec_lag` must track
     `quote_at`'s offset; if that changes, change this.
+
+    `profile` (spread in price units by JST hour) overrides the Eightcap profile;
+    tests pass one so they need no data file.
     """
-    prof = _hourly_spread_profile()
+    prof = _hourly_spread_profile() if profile is None else profile
     exec_hour = (bid.index + pd.Timedelta(exec_lag)).tz_convert("Asia/Tokyo").hour
     spread = prof.reindex(exec_hour).to_numpy()
     return pd.DataFrame({"bid": bid.astype("float64"), "ask": bid.to_numpy() + spread, "spread": spread,

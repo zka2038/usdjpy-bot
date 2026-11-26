@@ -71,17 +71,26 @@ STAGES = {
 }
 
 
-def planned(start, end, days):
-    """(files, requests) still to fetch: days already on disk cost nothing."""
-    files = reqs = 0
+def missing_days(start, end, days, out_dir=None) -> list[tuple[dt.date, int]]:
+    """(UTC day, requests) for every day in the stage not yet on disk. A day's file is
+    written only once all its market-open hours are fetched; an hour the datafeed
+    answers with 404 is stored empty and counts as fetched."""
+    root = pathlib.Path(out_dir) if out_dir is not None else OUT_DIR
+    out = []
     for d in pd.date_range(start, end, freq="D"):
         d = d.date()
         if d.weekday() == 5 or (days is not None and d not in days):
             continue
         n = len(market_open_hours(d, TOKYO_MORNING_HOURS))
-        if n and not (OUT_DIR / SYMBOL / f"{d.year}" / f"{d}.parquet").exists():
-            files, reqs = files + 1, reqs + n
-    return files, reqs
+        if n and not (root / SYMBOL / f"{d.year}" / f"{d}.parquet").exists():
+            out.append((d, n))
+    return out
+
+
+def planned(start, end, days, out_dir=None):
+    """(files, requests) still to fetch: days already on disk cost nothing."""
+    m = missing_days(start, end, days, out_dir)
+    return len(m), sum(n for _, n in m)
 
 
 def run(stage: str, pause: float) -> None:

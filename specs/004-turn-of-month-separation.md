@@ -699,6 +699,35 @@ any filled data is viewed, and entered in the deviations table below.
   results were seen) covering the DST fix, the weekday-matched test, the criterion 5
   evaluation note, the withdrawn 1.60 bar, this amendment and any later drop.
 
+### Implementation note (2026-11-26; no filled data had been viewed)
+
+The analysis is `scripts/004_gap_fill_analysis.py` on `src/usdjpy/gapfill.py` and
+`src/usdjpy/tradeability.py`, tested in `tests/test_gapfill.py` on synthetic tick
+trees and smoke-run end to end on a stand-in tree built from the existing export.
+It refuses to run until every fetch stage is complete. Where the text above leaves a
+detail open, the code does this, fixed now:
+1. **Step 0 "every day both quote"** means exact minute matches at the execution
+   bars. The declared gate uses offsets −60/0/+60; ±1 and ±2 minutes are reported only.
+2. **A day is fillable** only if every bar its trade can read, including `quote_at`'s
+   5-minute look-back, lies on a stage 1 or stage 3 UTC date.
+3. **Trades priced from real bid/ask (Eightcap, from 2024-06-19) keep their own
+   spread** in the measured column, even on a stage 2 sample day. "Own quote first"
+   applies to trades priced from bid-only sources. This follows the declared "From
+   2024-06-19: Eightcap bid/ask, as now"; the Dukascopy-versus-Eightcap overlap is
+   reported.
+4. **Stage 2 yearly mean** applies to trades dated 2015-01-01 to 2024-06-18 (JST) that
+   have no own quote, by JST calendar year.
+5. **Imputation cell** = the paying bar × JST year, averaged over every JST business
+   day in that year with a tree quote at that bar (not only trade days).
+6. **Trades with no measured spread at all** (no own quote, no stage 2 mean, no cell)
+   are left out of the measured column and counted in the source table.
+7. **The 159 view** is shown only if the HC1 t of the slope of per-trade mid bp on
+   entry price is below 1.96 in absolute value; otherwise it is withheld.
+8. **Criterion 5 "under both CostModel() and PESSIMISTIC"**: the governing margin is
+   the evaluation note's (base-cost net minus the pessimistic all-in bar). The
+   stricter variant (net under `PESSIMISTIC` minus the same bar) is reported beside
+   it with its 95% label.
+
 ### Figures to re-derive
 
 Report each with *as run* and *filled* columns side by side:

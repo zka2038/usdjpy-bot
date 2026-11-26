@@ -25,7 +25,7 @@ import pandas as pd  # noqa: E402
 from scipy.stats import kurtosis, skew  # noqa: E402
 
 from usdjpy.config import RESULTS_DIR  # noqa: E402
-from usdjpy.stats import deflated_sharpe  # noqa: E402
+from usdjpy.stats import deflated_sharpe, max_trials_passing  # noqa: E402
 
 LEGS = ("prefix_long", "postfix_short")
 HURDLE = 0.95
@@ -33,15 +33,7 @@ N_MAX = 200
 
 
 def max_trials(sr: float, n: int, sk: float, ku: float) -> int:
-    """Largest trial count whose DSR still exceeds the hurdle (0 if even N=1 fails).
-    DSR falls monotonically in N, so scan up."""
-    last = 0
-    for k in range(1, N_MAX + 1):
-        if deflated_sharpe(sr, n, sk, ku, k)["dsr"] > HURDLE:
-            last = k
-        else:
-            break
-    return last
+    return max_trials_passing(sr, n, sk, ku, hurdle=HURDLE, n_max=N_MAX)
 
 
 def main(results_dir: pathlib.Path, trials: int) -> None:

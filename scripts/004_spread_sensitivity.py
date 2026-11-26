@@ -44,14 +44,14 @@ import pandas as pd  # noqa: E402
 from scipy.stats import norm  # noqa: E402
 
 from usdjpy.config import RESULTS_DIR  # noqa: E402
-from usdjpy.costs import PESSIMISTIC, PIP, CostModel  # noqa: E402
+from usdjpy.costs import ERA_SPREAD_MULT, PESSIMISTIC, PIP, CostModel  # noqa: E402
 from usdjpy.events import tradeability_margin  # noqa: E402
 from usdjpy.stats import min_detectable_pips  # noqa: E402
 
 pd.set_option("display.width", 150)
 
 # multiplier on the measured 2024-26 raw-spread profile, by the entry bar's source
-ERA_BY_SOURCE = {"eightcap": 1.0, "histdata": 2.5, "dukascopy": 5.0}
+ERA_BY_SOURCE = ERA_SPREAD_MULT   # defined once, in costs.py
 
 PUBLISHED_EFFECT_PIPS = 0.018 / 100 * 159.0 / PIP   # 1.8bp at 159 = 2.86 pips
 BONF_T = 2.5                                        # pre-declared in spec 004

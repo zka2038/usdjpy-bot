@@ -190,9 +190,17 @@ of spec 004's *Gap fill* list and come later.
 **Report to the user before editing `CLAUDE.md` or `HANDOFF.md`.** The headroom
 number governs which sample every future spec may spend.
 
-### Task 3: write spec 004's gap-fill analysis before the data arrives
+### Task 3: write spec 004's gap-fill analysis before the data arrives — **DONE 2026-11-26 (code); run pending the fetch**
 
-> **Status 2026-11-25: questions settled, code not yet written.** The ambiguities
+> **2026-11-26:** written and tested, not run on real data. `scripts/004_gap_fill_analysis.py`
+> (`--check` for gate status; refuses until every stage is complete), library
+> `src/usdjpy/gapfill.py` and `src/usdjpy/tradeability.py`, tests `tests/test_gapfill.py`
+> (14, synthetic trees: hour and level offsets step 0 must catch, a gap filled from
+> the tree with both legs, the spread hierarchy, the gate, the labels). Smoke-run end
+> to end on a stand-in tree built from the export. Details the spec left open are
+> fixed in spec 004's dated *Implementation note*.
+>
+> **Earlier status 2026-11-25: questions settled, code not yet written.** The ambiguities
 > below, and six more, were researched against field practice
 > (`docs/research/Gap fill cost methodology standards.md`) and decided by the user.
 > The decisions are spec 004's *Amendment: field standards*. Build the analysis to
