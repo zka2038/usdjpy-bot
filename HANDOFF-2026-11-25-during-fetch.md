@@ -267,7 +267,53 @@ had been viewed when it was made.
   newer `CLAUDE.md` *Current state* says explicitly not to on 004's authority. Flag
   the contradiction to the user and change neither.
 
-### Task 5: harness gaps the triage lists
+### Task 5: harness gaps the triage lists — **DONE 2026-11-26**
+
+> **Status:** built and tested on synthetic data (`tests/test_harness.py`, 32 tests; 94
+> pass in all). No strategy was run.
+> 1. `datasets.load_minute(source, ohlc=True)` appends `bid_open`, `bid_high`,
+>    `bid_low` for every source, shifted with the close by the HistData DST fix. Default
+>    off, so no caller's frame changes. On the real files the plain columns are identical
+>    with and without it, and there are 0 bars with high < max(open, close),
+>    low > min(open, close) or NaN in any source. No source has ask extremes.
+> 2. `events.PERIODS_2015_2024` and `summarize(..., periods=)`; the default is unchanged.
+> 3. `events.timestamp_trades` (explicit UTC entry/exit, side per trade) and
+>    `events.at_local` (date + offset + local clock time, so "16:50 ET on T+3" holds across
+>    DST). It shares one pricing core with `window_trades`, which adds three trailing
+>    columns: `nights` (17:00 New York rolls held, `costs.roll_times`), `financing_pips`
+>    (per roll, at the rates published before it) and `mae_pips` (needs `ohlc=True`).
+> 4. `src/usdjpy/portfolio.py`: carried positions on any UTC schedule, the spec 014
+>    threshold rule, nightly financing, `CostModel` costs (a flat round trip costs exactly
+>    what `window_trades` charges), holdout stop, `apply_multiplier`/`on_schedule` for spec
+>    017, `quotes_from_mid` for the H.10 version, and `summary` (Sharpe, skew, max
+>    drawdown, worst period, CVaR 5%, return/max drawdown).
+> 5. `datasets.h10_daily()`; `histdata_alignment_check.py` now reads through it.
+>
+> **Defects fixed on the way:**
+> - `window_trades` checked the holdout on the entry date only, so a window rolling past
+>   New Year 2025 read holdout bars. Exits on or after `HOLDOUT_START` 00:00 UTC are now
+>   skipped too.
+> - `window_trades` charged no financing on windows held through 17:00 New York (specs
+>   008 C, 012 A). Both helpers now charge it, and raise if such a trade has no rates.
+>
+> **Behaviour preserved, by diff** against a clean export of `0dd3c9d`:
+> `turn_of_month_study.py`, `gotobi_study.py` and `histdata_alignment_check.py` give
+> identical stdout. Every original trade column is text-identical in all 8 trade CSVs
+> (7,786 rows); the new columns are all 0 / 0.0 / NaN, since specs 001 and 004 hold no night.
+> All 9 alignment CSVs are byte-identical. The clean export also reproduced the shared
+> `results/004_*.csv` byte for byte.
+>
+> **Found, not changed (the user's call):**
+> - `rates.boj_call_rate()` stamps a month's average at 00:00 UTC on the 1st of the next
+>   month, a few days before the month's last final daily print. It is a small look-ahead
+>   on a carry input. Fixing it moves spec 005's financing figures.
+> - **No USD short rate is on disk.** `rates.fed_funds()` needs `data/official/fred_daily.csv`
+>   (`scripts/fetch_official.py`), never fetched. Specs 006 C, 012, 013, 014 and 016 need it
+>   for financing. It is a new fetch, so ask first.
+> - `horizon.simulate` (spec 005) charges financing on fractional calendar days, while the
+>   new code charges per roll. The two agree on its whole-day holds. Left alone.
+> - Commission is priced at the fill in `window_trades` and at mid in the simulator: a
+>   1e-5 relative difference.
 
 Specs 006–018 need these whichever sample they spend. Each gets tests and none
 runs a strategy:

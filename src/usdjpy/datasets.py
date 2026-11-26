@@ -1,7 +1,9 @@
 """Loaders for everything in data/. See docs/DATA.md for provenance and caveats.
 
 All price loaders return 1-minute bars indexed by UTC timestamp with at least `bid` and `ask`
-columns (bar close), which is what usdjpy.events.window_trades expects.
+columns (bar close), which is what usdjpy.events.window_trades expects. `load_minute(...,
+ohlc=True)` adds the bid bar's `bid_open`, `bid_high` and `bid_low`, for stops and MAE. No
+source carries ask extremes (Eightcap stores the ask close only).
 
 BID-only sources get a synthetic ask: bid + the median Eightcap spread for that JST hour
 (2024-26 raw-spread account, ~0.25 pips most hours, ~5 pips at the 17:00 NY rollover).
@@ -126,20 +128,45 @@ def fix_histdata_dst(s: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     return out
 
 
-def load_minute(source: str = "combined") -> pd.DataFrame:
+OHLC_COLS = ("bid_open", "bid_high", "bid_low")
+
+
+def _add_bid_ohlc(out: pd.DataFrame, raw: pd.DataFrame, cols=("open", "high", "low")) -> pd.DataFrame:
+    """Append the bid bar's open/high/low as OHLC_COLS. `raw` must share `out`'s index."""
+    if not raw.index.equals(out.index):
+        raise AssertionError("OHLC frame is not aligned with the bars")
+    for new, old in zip(OHLC_COLS, cols):
+        out[new] = raw[old].astype("float64").to_numpy()
+    return out
+
+
+def load_minute(source: str = "combined", ohlc: bool = False) -> pd.DataFrame:
     """1-min bars. source: 'dukascopy' (2007-2023, gappy), 'histdata' (2015-2025-04; gappy Feb-Jul 2023, DST-corrected),
-    'eightcap' (2024-06 to 2026-06, real bid/ask), or 'combined' (best available per period)."""
+    'eightcap' (2024-06 to 2026-06, real bid/ask), or 'combined' (best available per period).
+
+    ohlc=True appends `bid_open`, `bid_high`, `bid_low` (the default leaves them out, which
+    keeps every existing caller's frame and memory unchanged). The synthetic `spread` and
+    `ask` are keyed on the hour the bar's CLOSE is traded at (see _with_synthetic_ask),
+    so a stop tested inside bar T at T's own hour sees the next minute's spread; it differs
+    only on an hour boundary. A synthetic ask high is not the bid high plus that spread
+    unless the spread was constant over the bar."""
     if source == "dukascopy":
-        return _with_synthetic_ask(pd.read_parquet(BARS / "dukascopy_bid_2007_2023.parquet")["close"], "dukascopy")
+        raw = pd.read_parquet(BARS / "dukascopy_bid_2007_2023.parquet")
+        out = _with_synthetic_ask(raw["close"], "dukascopy")
+        return _add_bid_ohlc(out, raw) if ohlc else out
     if source == "histdata":
-        bid = fix_histdata_dst(pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")["close"])
-        return _with_synthetic_ask(bid, "histdata")
+        raw = pd.read_parquet(BARS / "histdata_bid_2015_2025.parquet")
+        if not ohlc:
+            return _with_synthetic_ask(fix_histdata_dst(raw["close"]), "histdata")
+        fixed = fix_histdata_dst(raw[["open", "high", "low", "close"]])
+        return _add_bid_ohlc(_with_synthetic_ask(fixed["close"], "histdata"), fixed)
     if source == "eightcap":
         e = pd.read_parquet(BARS / "eightcap_bidask_2024_2026.parquet")
-        return pd.DataFrame({"bid": e["bid"].astype("float64"), "ask": e["ask"].astype("float64"),
-                             "spread": e["spread_mean"].astype("float64"), "source": "eightcap"}, index=e.index)
+        out = pd.DataFrame({"bid": e["bid"].astype("float64"), "ask": e["ask"].astype("float64"),
+                            "spread": e["spread_mean"].astype("float64"), "source": "eightcap"}, index=e.index)
+        return _add_bid_ohlc(out, e, ("bid_open", "bid_high", "bid_low")) if ohlc else out
     if source == "combined":
-        du, hd, ec = load_minute("dukascopy"), load_minute("histdata"), load_minute("eightcap")
+        du, hd, ec = (load_minute(s, ohlc=ohlc) for s in ("dukascopy", "histdata", "eightcap"))
         ec_start = ec.index[0]
         parts = [du[du.index < hd.index[0]], hd[hd.index < ec_start], ec]
         return pd.concat(parts).sort_index()
@@ -175,6 +202,22 @@ def cot(report: str = "tff") -> pd.DataFrame:
     df = pd.read_csv(DATA_DIR / "positioning" / f"cot_jpy_{report}_weekly.csv", parse_dates=["date"]).set_index("date")
     df["available_from"] = df.index + pd.Timedelta(days=3)
     return df
+
+
+def h10_daily() -> pd.DataFrame:
+    """Fed H.10 USDJPY noon buying rate (JPY per USD), one row per US business day; the
+    file's holiday rows (no rate) are dropped. Same series as FRED DEXJPUS in macro_daily().
+
+    `observed_at` (UTC) is 12:00 New York on the date: the instant the price prevailed,
+    which is what to align it with (timestamp trap 1: never pair it with a US close). It
+    is NOT when the series became available as data: the Fed publishes H.10 weekly and
+    FRED posts with a lag, so a rule that reads the published series rather than the
+    market must lag it further. Provenance: docs/DATA.md.
+    """
+    h = pd.read_csv(DATA_DIR / "macro" / "fred_h10_usdjpy_daily_1971_2026.csv",
+                    parse_dates=["date"]).set_index("date")["JPY_per_USD"].dropna()
+    noon = (h.index + pd.Timedelta("12h")).tz_localize("America/New_York").tz_convert("UTC")
+    return pd.DataFrame({"rate": h.to_numpy(dtype="float64"), "observed_at": noon}, index=h.index)
 
 
 def macro_daily() -> pd.DataFrame:

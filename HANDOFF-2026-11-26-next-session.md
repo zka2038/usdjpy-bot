@@ -49,6 +49,10 @@ ceiling, about 120 requests an hour.
   full, losing time to HTTP 429 blocks and one death): about 130 hours, finishing
   around 1 Dec.
 
+**Re-measured 2026-11-26 01:04 UTC:** alive (PID 15067), one day file every 2 minutes,
+which is full pace. Stage 1 done; stage 2 411 days / 1,414 requests, stage 3 2,506 / 8,354;
+9,768 left. The projection above stands.
+
 More blocks, or the process dying unnoticed (laptop sleep is the likely cause), push
 it later. Re-measure rather than trusting these dates. Day files' modification times
 are metadata, not contents, and may be listed.
@@ -69,7 +73,7 @@ are metadata, not contents, and may be listed.
 ## 4. Order of work
 
 As in `HANDOFF-2026-11-26-remaining.md` §3:
-1. **Task 5**, the harness gaps.
+1. ~~**Task 5**, the harness gaps.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 5).
 2. **Task 6**, the volatility model, validated on synthetic data first.
 3. **When the fetch completes, stop and tell the user** before running
    `scripts/004_gap_fill_analysis.py`, then continue with §3 items 1–2 there.
@@ -88,6 +92,6 @@ Ask the user before anything in §4 there.
 - **Store each fact once.** Point to `docs/DATA.md`, the spec, or `HANDOFF.md` rather
   than copying numbers.
 - **Report at checkpoints.** Say what was checked, and stop where a handoff says to.
-- **Tests:** `~/.venvs/usdjpy-bot/bin/python -m pytest -q tests` (62 pass at `8cad770`).
+- **Tests:** `~/.venvs/usdjpy-bot/bin/python -m pytest -q tests` (62 pass at `8cad770`, 94 after Task 5).
 - **exFAT:** delete AppleDouble files before committing
   (`find . -name '._*' -not -path './.git/*' -delete`), never under `data/tokyo_hours/`.

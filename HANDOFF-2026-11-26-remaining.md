@@ -27,7 +27,7 @@ only, repeatedly.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
   weekday-matched control at the declared bar; criterion 4 passes; criterion 5 is
   pending the measured spread. Figures in `HANDOFF.md` §2 and the spec's *Results*.
-- **Tests:** 62 pass (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
+- **Tests:** 94 pass after Task 5 (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
 
 ## 2. The fetch
 
@@ -42,6 +42,11 @@ tail -3 data/tokyo_hours/fetch.log
 ps -p "$(cat data/tokyo_hours/fetch.pid)"            # alive?
 ~/.venvs/usdjpy-bot/bin/python scripts/004_gap_fill_analysis.py --check   # days left per stage (filenames only)
 ```
+
+From a worktree, add `--tree-root "/Volumes/bzk Drive/usdjpy-bot/data/tokyo_hours"`:
+the default reads the worktree's own `data/tokyo_hours`, which is deliberately not
+linked, and reports every stage as untouched. Request counts (not just days):
+`download_gap_fill.planned(*STAGES[s][:3], out_dir=...)`, also filenames only.
 
 - **It has died once** (2026-11-25, between 22:43 and 23:02 UTC, no traceback) and
   was restarted. Restart it the way `HANDOFF-2026-11-25-during-fetch.md` §2
@@ -69,15 +74,10 @@ ps -p "$(cat data/tokyo_hours/fetch.pid)"            # alive?
    run and filled disagree on any kill criterion. Then update the copies the spec
    lists (`CLAUDE.md` *Current state* and trial budget, `HANDOFF.md` §2, the
    `specs/README.md` index), each saying which sample it quotes.
-3. **Task 5, harness gaps** (`HANDOFF-2026-11-25-during-fetch.md` §3, each with
-   tests, none running a strategy):
-   - bid high/low in `datasets.load_minute`;
-   - `summarize()` periods for 2015–19 / 2020–24, beside `events.PERIODS`;
-   - a timestamp-based window helper for multi-day or ET-anchored holds;
-   - a weekly portfolio simulator (specs 014/016/017);
-   - loaders for the H.10 daily and the BoJ call-rate files. The H.10 noon check in
-     `scripts/histdata_alignment_check.py` reads the file directly and could move onto
-     the loader.
+3. ~~**Task 5, harness gaps**~~ **Done 2026-11-26.** What was built, the two
+   `window_trades` defects fixed, the diff proof, and two items left for the user (the
+   BoJ call-rate stamp; no USD short rate on disk) are in
+   `HANDOFF-2026-11-25-during-fetch.md` Task 5.
 4. **Task 6, the volatility model:** HAR-RV on 5-minute realised vol, the
    minute-of-week vol profile, and vol-target sizing (specs 007, 017). Build it on
    `load_minute("combined")` and validate on synthetic data first.

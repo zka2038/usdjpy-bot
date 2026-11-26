@@ -26,8 +26,10 @@ class CostModel:
     # benchmark + 1.5% on the short one, so ~2% a year of notional goes to the broker either way.
     financing_skim_pct: float = 2.0
 
-    def commission_usd(self) -> float:
-        return max(self.notional_usd * self.commission_bp / 1e4, self.min_commission_usd)
+    def commission_usd(self, notional_usd: float | None = None) -> float:
+        """Per-order commission; default at this model's notional."""
+        n = self.notional_usd if notional_usd is None else abs(notional_usd)
+        return max(n * self.commission_bp / 1e4, self.min_commission_usd)
 
     def commission_pips(self, price: float) -> float:
         """Per-side commission expressed in USDJPY pips at a given price."""
@@ -49,6 +51,27 @@ class CostModel:
         """
         carry_pct = side * (usd_rate_pct - jpy_rate_pct) - self.financing_skim_pct
         return price * carry_pct / 100 * days / 360 / PIP
+
+
+ROLL_TZ, ROLL_HOUR = "America/New_York", 17
+
+
+def roll_times(start: pd.Timestamp, end: pd.Timestamp) -> pd.DatetimeIndex:
+    """UTC instants of the 17:00 New York rolls a position open over [start, end) is held through.
+
+    One roll per calendar day, weekends included, so a position held over a weekend
+    pays three nights however it is entered: interest accrues daily on the cash
+    balances IBKR converts FX positions into. A roll at exactly `start` counts (the
+    position is open at it), one at exactly `end` does not. Built on local dates, so
+    17:00 stays 17:00 New York across DST. An intraday Tokyo hold crosses none.
+
+    `horizon.simulate` charges fractional calendar days instead; the two agree on
+    whole-day holds, which is all it simulates.
+    """
+    a, b = pd.Timestamp(start).tz_convert(ROLL_TZ), pd.Timestamp(end).tz_convert(ROLL_TZ)
+    days = pd.date_range(a.date() - pd.Timedelta(days=1), b.date() + pd.Timedelta(days=1), freq="D")
+    rolls = (days + pd.Timedelta(hours=ROLL_HOUR)).tz_localize(ROLL_TZ)
+    return rolls[(rolls >= a) & (rolls < b)].tz_convert("UTC")
 
 
 # Spread multipliers on the 2024-26 synthetic profile, by the era a trade's bars come
