@@ -75,7 +75,7 @@ are metadata, not contents, and may be listed.
 
 As in `HANDOFF-2026-11-26-remaining.md` §3:
 1. ~~**Task 5**, the harness gaps.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 5).
-2. **Task 6**, the volatility model, validated on synthetic data first.
+2. ~~**Task 6**, the volatility model.~~ Done 2026-11-26 (`HANDOFF-2026-11-25-during-fetch.md` Task 6).
 2a. **Spec 003 re-run check and spec 001 housekeeping** (`HANDOFF-2026-11-26-remaining.md`
    §3 items 5-6). Report the spec 003 comparison before editing anything.
 3. **When the fetch completes, stop and tell the user** before running

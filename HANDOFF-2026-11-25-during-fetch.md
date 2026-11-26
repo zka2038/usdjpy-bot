@@ -343,7 +343,55 @@ runs a strategy:
 4. a weekly portfolio simulator, for 014/016/017
 5. loaders for the H.10 daily and the BoJ call-rate files in `data/macro/`
 
-### Task 6: Tier 0b volatility model
+### Task 6: Tier 0b volatility model — **DONE 2026-11-26**
+
+> **Status:** `src/usdjpy/vol.py`, tested on synthetic data with known answers
+> (`tests/test_vol.py`, 23 tests; 118 pass in all), checked on real pre-holdout bars by
+> `scripts/vol_model_check.py`. No strategy run; nothing predicts returns, so no trial
+> budget is spent. The design was fixed before any real-data fit (stated in the session);
+> one choice was then changed after the real-data check, below, and is marked as such.
+> - **Realised variance:** 5-min bid, previous-tick, 17:00-to-17:00 New York trading days
+>   (the `costs.roll_times` boundary), no cross-day returns, a day counts at >= 80% of its
+>   5-min intervals. Synthetic: unbiased for integrated variance (ratio 1.00 +/- 0.02), also
+>   with 30% of minutes missing; days missing their first quarter are flagged. Real
+>   (`combined`): 99% of weekdays valid from 2015, 41-80% in 2007-2014, 56% in 2023 (the
+>   HistData gap); median annualised vol 5-13% by year.
+> - **HAR-RV** (spec 017 O2, lags 1/5/22, levels, direct h-step, expanding OLS on rows whose
+>   target is observed by the forecast day, floor at the smallest training target,
+>   annualised over 260 weekdays). Synthetic: recovers known coefficients (+/- 0.06) and a
+>   perturbation test proves no look-ahead at h = 1 and 5. Real, out of sample from
+>   2010-07: MSE 0.60x the naive forecast at h = 1 and 0.66x at h = 5; QLIKE better at
+>   h = 1 (0.309 vs 0.337) but **marginally worse at h = 5 (0.255 vs 0.251)**; correlation
+>   with realised 0.27 / 0.39; final coefficient sum 0.71 / 0.64, weighted to the 22-day lag.
+>   Levels HAR is the spec's form; a log-HAR is the usual alternative if spec 017 wants it.
+>   That is spec 017's choice to declare, not made here.
+> - **EWMA** (`ewma_variance`, lam or centre of mass): seeded from the first 20 returns, no
+>   look-ahead (tested).
+> - **Minute-of-week baseline** (`seasonal_baseline`, spec 007's s_m and 017's spread z):
+>   `stat` over the same cell in the previous 12 weeks (`"84D"`, spec 007's 60 trading days),
+>   strictly before t, >= 8 observations. **`clock` is a required argument.** Real data
+>   (HistData 2015-2024): any single clock gives a baseline for ~97% of minutes; the
+>   DST-split clock of trap 7 (`jst_nydst`) for only **66.4%**, because each US DST change
+>   empties the new regime's cells for ~8 weeks. **Changed after the real-data check:** the
+>   first version counted the last 12 observations of a cell with no age limit; that
+>   silently borrowed last year's same-DST weeks, breaking "previous 60 trading days", and
+>   hid the 66% figure. Spec 007 must declare its clock: one clock (smears events on the
+>   other clock for ~12 weeks after each change), the split (loses a third of minutes),
+>   or a count-based split (borrows last year's weeks).
+> - **Sizing:** `vol_target_weight` (spec 014: 10%, cap 2; spec 017 O2: 8%); NaN vol
+>   gives NaN, never a capped full position. Feeds `portfolio.simulate` targets.
+>
+> **Findings for later specs (not edited into them):**
+> - **Spec 007 says "1-min mid log return"; use the bid.** On bid-only sources the
+>   synthetic ask makes the mid step 2.34 pips at 05:59 JST and 2.20 at 06:59 JST every
+>   day. With a minute-of-week baseline the steps are absorbed, so they hide real shocks at
+>   those minutes (a 5x rule fires on 0.9% of days on the mid against 5.7% on the bid)
+>   rather than creating false ones. *(My review note this session said they would create
+>   false shocks; the measurement says otherwise.)*
+> - **`signals.ewma_vol` and `stats.ewma_standardise` seed with the full-sample variance**,
+>   future data included. Spec 003 uses `ewma_vol`. Left unchanged because fixing it moves
+>   spec 003's figures; it belongs to the spec 003 re-run check
+>   (`HANDOFF-2026-11-26-remaining.md` §3 item 5).
 
 HAR-RV on 5-minute realised volatility, the minute-of-week volatility profile, and
 vol-target sizing, which specs 007 and 017 use. This is infrastructure, not a test.

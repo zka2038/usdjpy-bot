@@ -27,7 +27,7 @@ only, repeatedly.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
   weekday-matched control at the declared bar; criterion 4 passes; criterion 5 is
   pending the measured spread. Figures in `HANDOFF.md` §2 and the spec's *Results*.
-- **Tests:** 95 pass after Task 5 and the BoJ stamp fix (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
+- **Tests:** 118 pass after Tasks 5 and 6 (`~/.venvs/usdjpy-bot/bin/python -m pytest -q tests`).
 
 ## 2. The fetch
 
@@ -80,10 +80,10 @@ linked, and reports every stage as untouched. Request counts (not just days):
    `window_trades` defects fixed, the diff proof, the DFF fetch and BoJ stamp fix that
    followed, and the spec 005 restatement (on the user's decision, confirmed from a fresh
    clone) are in `HANDOFF-2026-11-25-during-fetch.md` Task 5.
-4. **Task 6, the volatility model:** HAR-RV on 5-minute realised vol, the
-   minute-of-week vol profile, and vol-target sizing (specs 007, 017). Build it on
-   `load_minute("combined")` and validate on synthetic data first. *(Started 2026-11-26;
-   status in `HANDOFF-2026-11-25-during-fetch.md` Task 6.)*
+4. ~~**Task 6, the volatility model**~~ **Done 2026-11-26** (`src/usdjpy/vol.py`). What
+   was built, the real-data checks, and two findings for later specs (spec 007 must use
+   the bid and declare its minute-of-week clock) are in `HANDOFF-2026-11-25-during-fetch.md`
+   Task 6.
 5. **Spec 003 re-run check** (added 2026-11-26 on the user's instruction). Spec 003's
    *Results* say "Run 2026-11-25"; the spec was last changed at 02:15 that day, before
    the HistData DST fix (`a1dfccb`, 17:42), so like spec 005 its figures (max |t_hc|
@@ -91,7 +91,10 @@ linked, and reports every stage as untouched. Request counts (not just days):
    exec-hour correction is already in (`d541d7d`). Method, as for spec 005 (Task 5 record):
    run `scripts/rate_path_study.py` on current code; if it differs from the published
    figures, confirm the difference is the DST fix by re-running with
-   `datasets.fix_histdata_dst` disabled, which should reproduce them exactly. **Report
+   `datasets.fix_histdata_dst` disabled, which should reproduce them exactly. Also
+   decide with the user whether to fix `signals.ewma_vol`'s seed, which uses the
+   full-sample variance (future data; found in Task 6): a fix moves spec 003's figures
+   too, so any restatement should carry both at once. **Report
    before editing anything:** restating spec 003, and its copies in `CLAUDE.md` *Current
    state*, `HANDOFF.md` §1 and §4, is the user's decision. If restated, confirm on a fresh
    clone first, as spec 005 was.
