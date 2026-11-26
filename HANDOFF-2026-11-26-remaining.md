@@ -18,9 +18,10 @@ only, repeatedly.
 
 ## 1. Where things stand
 
-- **Branch `research/004-during-fetch`**, pushed, with a pull request to `main`.
-  It carries everything since `origin/main` (`cd8b164`), including the four unpushed
-  commits of the session before (`e7dcfa2`…`ff8aad9`). Merging is the user's step.
+- **`main` holds all of this work** (PR #4, merge `3a951ba`), including the four
+  previously unpushed commits of the session before. It is the starting point for
+  what follows; leave it as is. Work continues on `research/remaining-work`, branched
+  from `3a951ba` and not merged; the user decides when it goes to `main`.
 - **Tasks 1–4 of the during-fetch handoff are done.** Task 3's analysis is written
   and tested but cannot run until the fetch completes.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
@@ -90,14 +91,29 @@ ps -p "$(cat data/tokyo_hours/fetch.pid)"            # alive?
   `fetch_official.py` hardcodes `usdjpy`.
 - **New fetches of any kind**, anything after `HOLDOUT_START`, any edit to kill
   criteria, renaming branches, and merging.
+- **Merging either collaborator branch** (both unmerged on `origin`):
+  - **`research/trial-budget` is deliberately not adopted.** Its ledger counts
+    configurations with near-duplicates collapsed (effective N=11) and concludes spec
+    004 fails the Deflated Sharpe hurdle. **The user chose to count specs, N=5
+    (2026-11-25; `CLAUDE.md`, trial budget), after seeing it.** Do not reopen the
+    count on that branch's authority. Its figures also predate the HistData DST fix:
+    on the corrected trades, spec 004 passes at N=11 (0.969 prefix, 0.951 postfix),
+    though prefix fails there without its single 2011-03-18 trade. If merged, it
+    conflicts with `main` in `CLAUDE.md`, `HANDOFF.md`, spec 004 and `specs/README.md`.
+  - **`feature/dukascopy-fetch`** (a collaborator): a separate resumable Dukascopy
+    downloader with its own 429 handling. It edits `src/usdjpy/datasets.py`, which
+    `main` changed for the HistData fix, so a merge needs care there. It sends
+    requests to datafeed.dukascopy.com: do not run it on this machine while the
+    gap-fill fetch runs, since the two would share one rate limit.
 
 ## 5. Housekeeping
 
 - **Worktree.** This session worked in `.claude/worktrees/during-fetch`. `data/` and
   `results/` there are symlinks into the main checkout (`data/tokyo_hours` is
-  deliberately not linked). After the merge the worktree can be removed with `git
-  worktree remove`; the main checkout is still on `research/002-intervention-disclosure`
-  at `ff8aad9`, whose upstream is gone.
+  deliberately not linked). It now carries `research/remaining-work`; remove it with
+  `git worktree remove` only once that branch is pushed and no longer needed. The main
+  checkout is still on `research/002-intervention-disclosure` at `ff8aad9`, whose
+  upstream is gone; leave it until the fetch, which was started from it, finishes.
 - **`results/archive/004_as_run_pre_dst_fix/`** holds the pre-DST-fix trades that
   `scripts/004_dst_fix_verification.py` and the spec's "was" figures rely on.
   `results/` is gitignored; the verification script's docstring says how to
