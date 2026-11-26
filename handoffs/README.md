@@ -87,7 +87,7 @@ are items of `HANDOFF-2026-11-26-remaining.md` §6.
 
 | | Item | Who | Needs | Why this rank |
 |---|---|---|---|---|
-| **P0** | Keep the fetch alive: mains power; restart by §2's procedure if it dies | user / agent | nothing | Two deaths so far (one on battery); every hour lost is ~30 days of stage 3 |
+| **P0** | Keep the fetch alive: mains power; restart by §2's procedure if it dies. Check it with `scripts/fetch_status.py` | user / agent | nothing | Three deaths so far (two at low battery); every hour lost is ~30 days of stage 3 |
 | **P1** | Merge `research/remaining-work` into `main` | user | GitHub compare page (`gh` absent) | Carries the triage, the handoff updates and this folder |
 | **P2** | Decide: sign off or amend the specs 006-018 triage, including whether each new pair starts its own spec count [6]; spec 007 bid or mid [4]; spec 017 HAR levels or log [5] | user | reading only | Minutes of work; P3, P5 and P6 depend on the first |
 | **P3** | JPY-cross breadth study [7]: first pre-declare a spec (spec 004's rule on EURJPY, AUDJPY, GBPJPY, MOF days excluded) before any cross data is seen; then, on go-ahead, the HistData cross-pair fetch and per-pair spread profiles | agent, user go-ahead for the fetch | spec text; then a new fetch (HistData, not Dukascopy, so no shared rate limit) | Highest-value next study (`HANDOFF.md` §2): the only route to confirming spec 004's effect, and it runs alongside the fetch |
