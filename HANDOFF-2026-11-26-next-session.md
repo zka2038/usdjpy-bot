@@ -61,8 +61,9 @@ are metadata, not contents, and may be listed.
 ## 3. Decisions already made: do not reopen
 
 - **Trial count: N = 5 specs** (`CLAUDE.md`, trial budget). The collaborator branch
-  `research/trial-budget` (effective N = 11) was seen and deliberately not adopted;
-  do not merge it (`HANDOFF-2026-11-26-remaining.md` §4).
+  `research/trial-budget` (effective N = 11) was seen and deliberately not adopted; its
+  triage proposal was kept (`specs/TRIAGE-006-018.md`) and the branch deleted on
+  2026-11-26 (`HANDOFF-2026-11-26-remaining.md` §4 has the SHAs).
 - **No fetch deadline.** A day leaves the requirement only by a dated note in spec 004
   recording the user's decision.
 - **Kill criteria and their thresholds are fixed.** Spec 004's gap-fill analysis is

@@ -134,15 +134,18 @@ linked, and reports every stage as untouched. Request counts (not just days):
   `fetch_official.py` hardcodes `usdjpy`.
 - **New fetches of any kind**, anything after `HOLDOUT_START`, any edit to kill
   criteria, renaming branches, and merging.
-- **Merging either collaborator branch** (both unmerged on `origin`):
-  - **`research/trial-budget` is deliberately not adopted.** Its ledger counts
-    configurations with near-duplicates collapsed (effective N=11) and concludes spec
-    004 fails the Deflated Sharpe hurdle. **The user chose to count specs, N=5
-    (2026-11-25; `CLAUDE.md`, trial budget), after seeing it.** Do not reopen the
-    count on that branch's authority. Its figures also predate the HistData DST fix:
-    on the corrected trades, spec 004 passes at N=11 (0.969 prefix, 0.951 postfix),
-    though prefix fails there without its single 2011-03-18 trade. If merged, it
-    conflicts with `main` in `CLAUDE.md`, `HANDOFF.md`, spec 004 and `specs/README.md`.
+- **Merging the remaining collaborator branch** (unmerged on `origin`):
+  - ~~`research/trial-budget`~~ **Deleted from `origin` 2026-11-26 on the user's
+    instruction**, after its one piece still of use, `specs/TRIAGE-006-018.md`, was brought
+    to `research/remaining-work` and rewritten for N = 5 (`2cb2c67`). It had been
+    deliberately not adopted: its ledger counted configurations (effective N=11) and
+    concluded spec 004 fails the Deflated Sharpe hurdle; **the user chose to count specs,
+    N=5 (2026-11-25; `CLAUDE.md`, trial budget), after seeing it.** Do not reopen the count
+    on its authority. Its tip was `8f7f216` (parent `fe8da8c`, both 2026-11-25); the objects
+    stay in the local repository until `git gc` prunes them, so while they last it can be
+    recovered with `git branch research/trial-budget 8f7f216`. Its DSR sensitivities
+    (variance-adjusted SR_0; intervention days excluded), run on DST-corrected trades on
+    2026-11-26, change nothing at N=5 (all 0.979-0.994) and were not brought.
   - **`feature/dukascopy-fetch`** (a collaborator): a separate resumable Dukascopy
     downloader with its own 429 handling. It edits `src/usdjpy/datasets.py`, which
     `main` changed for the HistData fix, so a merge needs care there. It sends
