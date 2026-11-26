@@ -18,11 +18,11 @@ only, repeatedly.
 
 ## 1. Where things stand
 
-- **`main` is at PR #5** (merge `cb04c11`, by the user, 2026-11-26 01:01 UTC), which took
-  `research/remaining-work` up to `8cad770`. On 2026-11-26 ~18:00 UTC, at the user's
-  request, a pull request was opened from `research/remaining-work` to `main` carrying
-  everything since, for the user to merge (agents do not merge or push to `main`). Check
-  `gh pr list` for its state. Work continues on `research/remaining-work` or a new branch.
+- **`main` is at PR #6** (merge `3588db6`, by the user, 2026-11-26 18:17 UTC), which carries
+  this session's work up to `deb7291`. After it, `research/remaining-work` added the specs
+  006-018 triage (`2cb2c67`) and its handoff notes; check `git log origin/main..` for
+  what is not yet on `main`. Agents do not merge or push to `main`; `gh` is not installed
+  on this machine, so the user opens and merges pull requests on GitHub.
 - **Next session: start at §6 below** (scope for continuing), after the fetch check in §2.
 - **Tasks 1–4 of the during-fetch handoff are done.** Task 3's analysis is written
   and tested but cannot run until the fetch completes.
@@ -33,14 +33,14 @@ only, repeatedly.
 
 ## 2. The fetch
 
-`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 17:48
-UTC: stages 1 and 2 complete; stage 3 has 2,446 days (~8,150 requests) left, about 68
-hours at full pace, so 29 Nov at the earliest and probably later.** It had been at full
-pace from the 14:48 restart (48 days in 2.5 h), then from ~17:30 Dukascopy answered
-HTTP 429 and timeouts; the script backs off and restarts itself (1 of 200 restarts used
-at 17:48). It has died twice, the second time (~13:44 UTC 26 Nov) on battery sleep,
-which `caffeinate -i` does not prevent: **keep the machine on mains power** (at 17:48 it
-was on battery, 34%). PID 51021 since the 14:48 restart. What is fetched and why:
+`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 18:28
+UTC: stages 1 and 2 complete; stage 3 has 2,436 days (~8,100 requests) left, about 68
+hours at full pace, so 29 Nov at the earliest and probably later.** It ran at full pace
+from the 14:48 restart, was rate-limited (HTTP 429, timeouts) from ~17:30 to ~18:15,
+backing off and restarting itself (1 of 200 restarts used), and was moving again at
+18:28. It has died twice, the second time (~13:44 UTC 26 Nov) on battery sleep,
+which `caffeinate -i` does not prevent: **keep the machine on mains power** (at 18:28 it
+was on battery, 18%). PID 51021 since the 14:48 restart. What is fetched and why:
 `specs/README.md`, *Dukascopy fetch*.
 
 ```bash
