@@ -8,7 +8,9 @@ no trial budget: it measures data coverage and how well volatility forecasts vol
    vol by year.
 2. HAR-RV out of sample, horizons 1 and 5: final coefficients, and MSE and QLIKE against
    the naive forecast (RV over the last h days carried forward).
-3. Minute-of-week baseline coverage by clock, on HistData 2015-2024 1-min bid returns.
+3. Minute-of-week baseline coverage by clock, on HistData 2015-2024 1-min bid returns, and
+   how each clock handles two real events (Thu 08:30 ET, 09:55 JST) in the 4 weeks after
+   each US DST change: the evidence for the hybrid clock (chosen 2026-11-26).
 4. The mid trap: share of |1-min return| >= 1 pip falling on minute :00, mid versus bid.
 Writes results/vol_rv_daily.csv and results/vol_har_forecast_h{1,5}.csv.
 """
@@ -26,6 +28,17 @@ from usdjpy.datasets import load_minute  # noqa: E402
 
 pd.set_option("display.width", 150, "display.float_format", "{:.3f}".format)
 HOLD = pd.Timestamp(HOLDOUT_START, tz="UTC")
+
+
+def us_dst_changes(years) -> pd.DatetimeIndex:
+    """US DST change instants (UTC): 2nd Sunday of March 07:00, 1st Sunday of November 06:00."""
+    out = []
+    for y in years:
+        m = pd.date_range(f"{y}-03-01", periods=31, freq="D", tz="UTC")
+        n = pd.date_range(f"{y}-11-01", periods=30, freq="D", tz="UTC")
+        out += [m[(m.month == 3) & (m.day_of_week == 6)][1] + pd.Timedelta("7h"),
+                n[(n.month == 11) & (n.day_of_week == 6)][0] + pd.Timedelta("6h")]
+    return pd.DatetimeIndex(out)
 
 
 def main() -> None:
@@ -67,12 +80,31 @@ def main() -> None:
     hd = load_minute("histdata")
     hd = hd[(hd.index >= pd.Timestamp("2015-01-01", tz="UTC")) & (hd.index < HOLD)]
     r = vol.minute_returns(hd["bid"]).abs().dropna()
-    for clock in ("utc", "Asia/Tokyo", "America/New_York", "jst_nydst"):
+    # 3b: at two real recurring events, the 4 weeks after each US DST change: how well the
+    # event's cell knows it (event / neighbour baseline) and how often |r| > 5x baseline.
+    changes = us_dst_changes(range(2015, 2025))
+    since = pd.Series(r.index, index=r.index) - changes[np.clip(changes.searchsorted(r.index, "right") - 1, 0, None)]
+    early = ((since >= pd.Timedelta(0)) & (since < pd.Timedelta(weeks=4))).to_numpy()
+    et, jst = r.index.tz_convert("America/New_York"), r.index.tz_convert("Asia/Tokyo")
+    events = {
+        "Thu 08:30 ET (jobless claims)": ((et.day_of_week == 3) & (et.hour == 8) & (et.minute == 30),
+                                          (et.day_of_week == 3) & (et.hour == 8) & et.minute.isin([20, 22, 24, 26, 34, 36, 38, 40])),
+        "09:55 JST (Tokyo fix)": ((jst.day_of_week < 5) & (jst.hour == 9) & (jst.minute == 55),
+                                  (jst.day_of_week < 5) & (jst.hour == 9) & jst.minute.isin([45, 47, 49, 51, 59])),
+    }
+    for clock in ("hybrid", "utc", "Asia/Tokyo", "America/New_York", "jst_nydst"):
         b = vol.seasonal_baseline(r, clock=clock)
         cov = b.notna().mean()
         months = vol.profile_coverage(b)
         print(f"{clock:17s} share of minutes with a baseline {cov:.3f}; worst month {months.min():.3f} "
               f"({months.idxmin()}); months below 0.9: {int((months < 0.9).sum())}")
+        for name, (ev, nb) in events.items():
+            e_m, n_m = ev & early, nb & early
+            has = int(b[e_m].notna().sum())
+            ratio = b[e_m].median() / b[n_m].median() if has else np.nan
+            shock = (r[e_m] > 5 * b[e_m]).sum() / has if has else np.nan
+            print(f"   weeks 0-4 after a US DST change, {name:30s}: event/neighbour baseline {ratio:5.2f}, "
+                  f"|r| > 5x baseline on {shock:6.1%} of {has} event minutes")
 
     print("\n" + "=" * 78 + "\n4. The mid trap, HistData 2015-2024 (bid-only, synthetic ask)\n" + "=" * 78)
     mid = (hd["bid"] + hd["ask"]) / 2

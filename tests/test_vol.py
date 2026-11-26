@@ -157,6 +157,28 @@ def test_ewma_recursion_seed_and_no_look_ahead():
         vol.ewma_variance(r)
 
 
+def test_past_only_seed_for_signals_ewma_vol_and_stats_ewma_standardise():
+    """Both seed from past returns only (fixed 2026-11-26); before, v[0] was the variance
+    of the whole series. Known answer: the measured spec 003 variant B."""
+    from usdjpy.signals import ewma_vol
+    from usdjpy.stats import ewma_standardise, ewma_variance_past, hurst_dfa
+    rng = np.random.default_rng(9)
+    r = rng.standard_normal(400) * 0.01
+    v = ewma_variance_past(r, 0.94)
+    assert np.isnan(v[0]) and v[1] == pytest.approx(r[0] ** 2) and v[20] == pytest.approx(np.mean(r[:20] ** 2))
+    assert v[21] == pytest.approx(0.94 * v[20] + 0.06 * r[20] ** 2)
+    r2 = r.copy()
+    r2[300:] *= 100                                       # nothing at or after 300 may move v[:301]
+    np.testing.assert_array_equal(v[:301], ewma_variance_past(r2, 0.94)[:301])
+    s = pd.Series(r, index=pd.bdate_range("2007-01-02", periods=400))
+    pd.testing.assert_series_equal(ewma_vol(s), pd.Series(np.sqrt(v), index=s.index, name="vol"))
+    z = ewma_standardise(r)
+    assert len(z) == len(r) - 1
+    raw = r[1:] / np.sqrt(v[1:])
+    np.testing.assert_allclose(z, raw - raw.mean())
+    assert hurst_dfa(ewma_standardise(rng.standard_normal(4000))) == pytest.approx(0.5, abs=0.08)
+
+
 # ------------------------------------------------------------------ minute-of-week baseline
 
 BASE = 1e-4
@@ -203,6 +225,41 @@ def test_utc_clock_smears_the_new_york_spike_after_dst(seasonal):
 def test_tokyo_clock_keeps_the_tokyo_spike_through_us_dst(seasonal):
     jp = _cell(seasonal, "Asia/Tokyo", "Asia/Tokyo", 9, 55, "2024-03-11", "2024-04-06")
     assert jp.median() / MED == pytest.approx(4, rel=0.3)
+
+
+def test_hybrid_clock_recovers_both_spikes_right_after_dst(seasonal):
+    """The case no other clock handles: weeks 1-4 after the US change, both events in place."""
+    et = _cell(seasonal, "hybrid", "America/New_York", 8, 30, "2024-03-11", "2024-04-06")
+    jp = _cell(seasonal, "hybrid", "Asia/Tokyo", 9, 55, "2024-03-11", "2024-04-06")
+    assert et.median() / MED == pytest.approx(6, rel=0.3)
+    assert jp.median() / MED == pytest.approx(4, rel=0.3)
+
+
+@pytest.mark.parametrize("t, space", [
+    ("2024-01-10 07:59", "et"),    # 02:59 EST: before the NY band -> JST key
+    ("2024-01-10 08:00", "et"),    # 03:00 EST: band starts
+    ("2024-01-10 22:09", "et"),    # 17:09 EST: rollover inside the band
+    ("2024-01-10 22:10", "jst"),   # 17:10 EST: band ends
+    ("2024-07-10 21:09", "et"),    # 17:09 EDT
+    ("2024-07-10 21:10", "jst"),
+    ("2024-01-11 00:55", "jst"),   # 09:55 JST, the Tokyo fix
+])
+def test_hybrid_band_edges(t, space):
+    k = vol.minute_of_week_key(pd.DatetimeIndex([ts(t)]), "hybrid")[0]
+    et_m = ts(t).tz_convert("America/New_York")
+    in_band = 180 <= et_m.hour * 60 + et_m.minute < 17 * 60 + 10
+    assert (k < 10080) == in_band
+    if t != "2024-01-10 07:59":
+        assert (k < 10080) == (space == "et")
+
+
+def test_hybrid_keys_follow_each_market_across_dst():
+    winter, summer = ts("2024-01-11 13:30"), ts("2024-07-11 12:30")      # Thu 08:30 ET in EST / EDT
+    k = vol.minute_of_week_key(pd.DatetimeIndex([winter, summer]), "hybrid")
+    assert k[0] == k[1] < 10080
+    tokyo_w, tokyo_s = ts("2024-01-11 00:55"), ts("2024-07-11 00:55")    # 09:55 JST both seasons
+    k = vol.minute_of_week_key(pd.DatetimeIndex([tokyo_w, tokyo_s]), "hybrid")
+    assert k[0] == k[1] >= 10080
 
 
 def test_baseline_excludes_the_current_and_later_observations(seasonal):

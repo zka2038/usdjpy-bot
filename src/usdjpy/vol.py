@@ -150,9 +150,10 @@ def ewma_variance(returns: pd.Series, lam: float | None = None, com: float | Non
     """EWMA variance forecast for t+1 from returns up to t, with no look-ahead.
 
     lam directly (spec 017: 0.94), or a centre of mass (spec 014: 60 days, lam = com/(1+com)).
-    Seeded with the mean square of the first `seed_obs` returns and NaN until then: unlike
-    `signals.ewma_vol` and `stats.ewma_standardise`, which seed with the full-sample
-    variance (future data). Missing returns leave the variance unchanged.
+    Seeded with the mean square of the first `seed_obs` returns and NaN until then.
+    (`signals.ewma_vol` is indexed differently, v_t from returns up to t-1, and warms up
+    on an expanding mean instead: `stats.ewma_variance_past`.) Missing returns leave the
+    variance unchanged.
     """
     if (lam is None) == (com is None):
         raise ValueError("give exactly one of lam, com")
@@ -174,26 +175,47 @@ def ewma_variance(returns: pd.Series, lam: float | None = None, com: float | Non
 
 # ------------------------------------------------------------------ minute-of-week profile
 
-CLOCKS = ("utc", "Asia/Tokyo", "America/New_York", "jst_nydst")
+CLOCKS = ("hybrid", "utc", "Asia/Tokyo", "America/New_York", "jst_nydst")
+# The hybrid clock's New York band, in New York minutes of the day: London open (03:00 ET)
+# through US data, the London fix and the 17:00 rollover. Fixed 2026-11-26 before measuring.
+HYBRID_NY_BAND = (3 * 60, 17 * 60 + 10)
 
 
 def minute_of_week_key(index: pd.DatetimeIndex, clock: str) -> np.ndarray:
     """Cell key of each timestamp: minute of the week (0 = Monday 00:00) on `clock`.
     REQUIRED, with no default: every choice costs something, so a spec declares it.
 
+    - 'hybrid' (**chosen by the user 2026-11-26 for minute-of-week work, spec 007's s_m
+      included**): each minute on the clock of the market that drives it. 03:00-17:10
+      New York time (`HYBRID_NY_BAND`) is keyed in New York time, everything else in
+      JST, in two separate key spaces (ET keys 0-10079, JST keys 10080+). A JST key
+      shifted by the US offset into one space instead collides at the band edges (420
+      keys in an EDT week hold two market states). Tokyo and New York events both stay
+      in their own cells through every US DST change; only the JST cells at the band
+      edges (06:10-07:10 and 16:00-17:00 JST) are in the band part of the year and
+      restart. Measured on HistData 2015-2024 (`scripts/vol_model_check.py`): 96.1% of
+      minutes have a baseline; in the 4 weeks after a US change the Thursday 08:30 ET and
+      09:55 JST minutes show 5.1% / 3.5% |r| > 5x baseline, as the matching single clock
+      does. London follows EU DST: its events sit an hour off for ~4 weeks a year.
     - 'Asia/Tokyo', 'America/New_York', 'utc': one clock. Events fixed on that clock are
       crisp; events on another clock change cell at each US (or EU) DST change and are
-      measured against the wrong history for up to 12 weeks.
+      measured against the wrong history for up to 12 weeks (Tokyo clock: 30.8% of
+      Thursday 08:30 ET minutes over 5x baseline in the 4 weeks after a change; New York
+      clock: 18.8% of 09:55 JST minutes).
     - 'jst_nydst': JST minute-of-week split by whether New York is on daylight time
-      (CLAUDE.md trap 7). Tokyo and New York events are both crisp, but each regime's
-      cells restart after every US DST change. With spec 007's 12-week window and 8
-      required observations that leaves no baseline for ~8 weeks twice a year: measured
-      on HistData 2015-2024, 66.4% of minutes have one, against ~97% for any single
-      clock (`scripts/vol_model_check.py`). London follows EU DST and is crisp in none.
+      (CLAUDE.md trap 7). Both crisp, but every cell restarts after each US DST change:
+      66.4% of minutes have a baseline, none in the 4 weeks after a change.
     """
     idx = pd.DatetimeIndex(index)
     if clock not in CLOCKS:
         raise ValueError(f"clock must be one of {CLOCKS}")
+    if clock == "hybrid":
+        et, jst = idx.tz_convert(ROLL_TZ), idx.tz_convert("Asia/Tokyo")
+        et_m = et.hour.to_numpy() * 60 + et.minute.to_numpy()
+        in_ny = (et_m >= HYBRID_NY_BAND[0]) & (et_m < HYBRID_NY_BAND[1])
+        k_et = et.day_of_week.to_numpy() * 1440 + et_m
+        k_jst = 10080 + jst.day_of_week.to_numpy() * 1440 + jst.hour.to_numpy() * 60 + jst.minute.to_numpy()
+        return np.where(in_ny, k_et, k_jst)
     local = idx.tz_convert("UTC" if clock == "utc" else ("Asia/Tokyo" if clock == "jst_nydst" else clock))
     key = local.day_of_week.to_numpy() * 1440 + local.hour.to_numpy() * 60 + local.minute.to_numpy()
     if clock == "jst_nydst":
