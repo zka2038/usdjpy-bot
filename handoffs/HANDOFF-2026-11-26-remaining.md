@@ -23,7 +23,9 @@ only, repeatedly.
   006-018 triage (`2cb2c67`) and its handoff notes; check `git log origin/main..` for
   what is not yet on `main`. Agents do not merge or push to `main`; `gh` is not installed
   on this machine, so the user opens and merges pull requests on GitHub.
-- **Next session: start at §6 below** (scope for continuing), after the fetch check in §2.
+- **Next session: start at `handoffs/README.md`** (the priority list, verified on a cold
+  clone 2026-11-26), after the fetch check in §2. §6 below holds the detail behind each
+  priority. All handoffs are in `handoffs/` since 2026-11-26.
 - **Tasks 1–4 of the during-fetch handoff are done.** Task 3's analysis is written
   and tested but cannot run until the fetch completes.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
@@ -174,7 +176,8 @@ linked, and reports every stage as untouched. Request counts (not just days):
 
 The user asked for this so the next session can continue after the fetch and, until then,
 work on what the Dukascopy data does not block. It lists options; what is chosen is the
-user's call. Everything below "Not blocked" may run while the fetch does, under §2's
+user's call. **Their order is the priority list in `handoffs/README.md`**, which cites the
+items below by number. Everything below "Not blocked" may run while the fetch does, under §2's
 rules (never read `data/tokyo_hours/`; send nothing to datafeed.dukascopy.com).
 
 **What this session (2026-11-26) delivered**, in order, each recorded where it says:
