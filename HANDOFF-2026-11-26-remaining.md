@@ -196,7 +196,9 @@ and 6, §3 items 3-6 above, `HANDOFF.md` §4 (superseded values).
 5. **Spec 017 O2's HAR form:** levels (as built; QLIKE slightly worse than naive at h=5)
    or log-HAR. Declare before spec 017 is run.
 6. **Trial budget for specs 006-018** (§4): about five hypotheses of headroom on USDJPY
-   2007-2024, or route them to JPY crosses.
+   2007-2024, or route them to other pairs. **A per-spec proposal now exists:**
+   `specs/TRIAGE-006-018.md` (brought from `research/trial-budget` 2026-11-26 and rewritten
+   against N = 5). It awaits the user's sign-off; nothing in it has taken effect.
 
 ### Not blocked by the Dukascopy data
 7. **JPY-cross breadth study** (`HANDOFF.md` §2: the highest-value next study). Needs a
