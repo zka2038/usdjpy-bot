@@ -58,7 +58,8 @@ the priority list.
   triage was accepted with an amendment (a JPY cross is not a fresh sample for a
   yen-side hypothesis), spec 007 uses the bid, and spec 017's HAR form is deferred. The
   JPY-cross replication study was replaced by **spec 019**, a yen-leg / dollar-leg
-  split of spec 004's B-day move, declared before any cross data exists. **No network
+  split of spec 004's B-day move, declared before any cross data exists, with its code
+  and known-answer harness (152 tests pass). **No network
   fetches until the Dukascopy fetch completes** (user's instruction).
   (`specs/TRIAGE-006-018.md` *Sign-off*; `specs/019-yen-dollar-split.md`)
 
@@ -108,8 +109,8 @@ brackets are items of `HANDOFF-2026-11-26-remaining.md` §6.
 | **A0** | Keep the fetch alive: mains power, a secure drive cable. Restarts are automatic (`data/disk-utility/fetch_supervisor.sh`); check with `scripts/fetch_status.py` and `bash ~/usdjpy-fetch-supervisor/fetch_supervisor.sh status` at the start of each session | user / agent | nothing | Eight deaths so far (drive dropouts, an unplug, sleep on battery); every hour lost is ~30 days of stage 3 |
 | ~~A1~~ | ~~Merge `research/remaining-work` into `main`~~ | | | **Done 2026-11-27** (PR #7, `1bc3669`) |
 | ~~A2~~ | ~~Triage sign-off; spec 007 bid or mid; spec 017 HAR form~~ | | | **Decided 2026-11-27**: triage accepted with the JPY-cross amendment; 007 bid; 017 deferred (`specs/TRIAGE-006-018.md` *Sign-off*) |
-| **A3** | **Spec 019** (yen-leg / dollar-leg split; replaces the JPY-cross replication study [7]). Spec **written 2026-11-27**. Remaining, in order: the HistData fetch of six pairs, 2007-2024 (**after** the Dukascopy fetch completes, on go-ahead); a pair argument for `fetch_official.py` and a pair-generic bid loader; `scripts/019_yen_dollar_split.py`, synthetic harness first; Step 0; Stage 1 (power, on control days), then stop for the user; Stage 2 only on their confirmation | agent; user for the fetch and for Stage 2 | the Dukascopy fetch complete, for the data; the code can be written before | The only study that speaks to spec 004's weekday confound. It spends one spec on USDJPY 2007-2024 at Stage 2 |
-| **A4** | Spec 003 follow-ups [9]: compute the fixed-notional column against the unscaled spread change; re-run on `histdata` alone | agent; report before restating | data on disk | Cheap, and it corrects a mislabelled column in a rejected spec. Next after A3's code |
+| **A3** | **Spec 019** (yen-leg / dollar-leg split; replaces the JPY-cross replication study [7]). Spec and code **written 2026-11-27** (`src/usdjpy/legsplit.py`, `scripts/019_yen_dollar_split.py`, `fetch_official.py --histdata-pairs`; the harness passes on synthetic data). Remaining, in order: the HistData fetch of six pairs, 2007-2024 (**after** the Dukascopy fetch completes, on go-ahead; the script refuses earlier); Step 0; Stage 1 (power, on control days), then stop for the user; Stage 2 only on their confirmation | agent; user for the fetch and for Stage 2 | the Dukascopy fetch complete, for the data; the code can be written before | The only study that speaks to spec 004's weekday confound. It spends one spec on USDJPY 2007-2024 at Stage 2 |
+| **A4** | Spec 003 follow-ups [9]: compute the fixed-notional column against the unscaled spread change; re-run on `histdata` alone | agent; report before restating | data on disk | Cheap, and it corrects a mislabelled column in a rejected spec. **Next item in hand** |
 | **A5** | Data for the specs the triage routes [8]: US release calendar, Treasury auction calendar, full `fetch_official.py` (S&P 500, MOF and CFTC official files), and minute bars for other pairs | agent, each on go-ahead | **the Dukascopy fetch complete** (no fetches before) | Deferred by the no-fetch instruction |
 | **A6** | Infrastructure for the routed specs: bar-loop simulator for stops (007, 010), MJY cost and roll model for the MJY rewrites (012, 013, 014) | agent | nothing (A2 decided); no fetch | Build when a spec that needs it is next: the triage routes 007 and 010 to other pairs first, and 012-014 to MJY or park |
 

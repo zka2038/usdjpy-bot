@@ -1,7 +1,8 @@
 # Spec 019: yen-leg / dollar-leg split of the Gotobi-morning move
 
 **Author:** bzk (drafted with Claude) · **Date:** 2026-11-27 · **Status:** idea. Declared
-before any cross-pair data exists on this machine; nothing fetched, nothing run.
+before any cross-pair data exists on this machine; nothing fetched, nothing run on real
+data. Code and its known-answer harness written and passing on synthetic data.
 
 **This spec asks what kind of move spec 004's B-day Tokyo-morning move is, not whether
 it can be traded.** It replaces the "JPY-cross breadth study" that `HANDOFF.md` §2 and
@@ -108,12 +109,14 @@ exist), and they inherit USDJPY's Friday effect by the same arithmetic. What the
 - **Fetch timing (user's instruction, 2026-11-27):** not before the Dukascopy gap-fill
   fetch has logged `stage 3 complete`, so that no second fetch can draw rate-limiting or
   IP blocking onto it. After that it still needs the user's go-ahead.
-- **Code needed, none written yet:**
-  - a pair argument for the HistData path of `scripts/fetch_official.py`, which
-    hardcodes `usdjpy`;
-  - a pair-generic bid loader (the `datasets.load_minute` path without the synthetic ask,
-    which is keyed on USDJPY's spread profile);
-  - `scripts/019_yen_dollar_split.py`.
+- **Code (written 2026-11-27, tested on synthetic data only):**
+  - `scripts/fetch_official.py --no-official --histdata-pairs …`: 2007-2024 only. It
+    refuses to run until the Dukascopy fetch log reads `stage 3 complete`;
+  - `datasets.read_histdata_mt_csv` and `datasets.load_histdata_bid(pair, fix_dst=…)`.
+    The bid-only loader has no synthetic ask, because that ask is keyed on USDJPY's spread
+    profile. `fix_dst` has no default;
+  - `src/usdjpy/legsplit.py`, `scripts/019_yen_dollar_split.py` and
+    `tests/test_legsplit.py`.
 - **Catalogue** each file in `docs/DATA.md` when fetched, with its provenance and the Step
   0 result.
 
@@ -143,6 +146,25 @@ at both ends: e_X = r_UJ − (r_XJ − r_XU), in bp.
 - **Any other failure: stop.** Report what was seen. Use no data until this section is
   amended by a dated note.
 - Step 0 reads identity residuals only. It computes no group means of J, D or r_UJ.
+
+**Clarifications (2026-11-27, written with the code, same day as the spec; no cross-pair
+data exists, so nothing has been seen).** These fix details the text above left open.
+They change no threshold.
+- **Offset sign.** An offset of +k means the six X pairs' bar labels are moved k minutes
+  later before reading (the stored label ts − k is read). HistData's known fault, where
+  the bar labelled T holds the true T+60 price, therefore shows as **+60**, the shift
+  `fix_histdata_dst` applies.
+- **Units and cells.** A unit is one (day, window). A day in a DST-mismatch window counts
+  only in that window's cell. Month cells hold the units outside every window, so the two
+  kinds of cell do not overlap. "Majority" means more than half; a tie in mean |e| goes
+  to offset 0. The median |e_X| ≤ 2 bp is taken per X over all units of both windows.
+- **"That pair" means all six.** They come from one feed with one clock, so the declared
+  correction applies `fix_histdata_dst` to all six or to none (`--fix-dst`). It is
+  declared only when every failing cell is a mismatch window from 2019 with modal offset
+  +60 and the medians pass.
+- **Stage 2's confirmation** is the user's dated decision recorded in this spec.
+  `scripts/019_yen_dollar_split.py` refuses Stage 2 without `--confirm-stage2`, and
+  refuses any real data unless its harness passes on that run.
 
 ## Stage 1: power, on control days only (before any B-day outcome is computed)
 

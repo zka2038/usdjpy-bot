@@ -115,6 +115,6 @@ renaming branches, anything after `HOLDOUT_START`, any kill-criterion edit).
   rather than copying numbers. Update `handoffs/README.md` (roadmap, priority list) in the
   same commit as any handoff change.
 - **Report at checkpoints.** Say what was checked; stop where a handoff says to.
-- **Tests:** `~/.venvs/usdjpy-bot/bin/python -m pytest -q tests` (130 pass at `5860834`).
+- **Tests:** `~/.venvs/usdjpy-bot/bin/python -m pytest -q tests` (152 pass after spec 019's code, 2026-11-27).
 - **exFAT:** delete AppleDouble files before committing
   (`find . -name '._*' -not -path './.git/*' -delete`), never under `data/tokyo_hours/`.

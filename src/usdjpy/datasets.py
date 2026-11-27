@@ -173,6 +173,48 @@ def load_minute(source: str = "combined", ohlc: bool = False) -> pd.DataFrame:
     raise ValueError(source)
 
 
+HISTDATA_MT_COLS = ["d", "t", "open", "high", "low", "close", "volume"]
+
+
+def read_histdata_mt_csv(f) -> pd.DataFrame:
+    """One HistData MetaTrader M1 CSV (`YYYY.MM.DD,HH:MM,o,h,l,c,v`, bid) to bid OHLC on a
+    UTC index. Stamps are read as New York local time WITH DST, the convention verified for
+    USDJPY (`docs/DATA.md`; same as scripts/build_github_data.py). Ambiguous and nonexistent
+    local times (the DST changes, inside the weekend close) are dropped. Whether a pair also
+    has the EU-date fault of CLAUDE.md trap 8 is NOT assumed here: see load_histdata_bid."""
+    df = pd.read_csv(f, header=None, names=HISTDATA_MT_COLS)
+    ts = pd.to_datetime(df["d"] + " " + df["t"], format="%Y.%m.%d %H:%M").dt.tz_localize(
+        "America/New_York", ambiguous="NaT", nonexistent="NaT").dt.tz_convert("UTC")
+    out = df[["open", "high", "low", "close"]].astype("float64")
+    out.index = pd.DatetimeIndex(ts, name="ts")
+    out = out[out.index.notna()]
+    out = out[~out.index.duplicated(keep="last")].sort_index()
+    return out
+
+
+def histdata_pair_path(pair: str):
+    """Bars built by `scripts/fetch_official.py --histdata-pairs` (spec 019): 2007-2024 only."""
+    return BARS / f"histdata_{pair.lower()}_bid_2007_2024.parquet"
+
+
+def load_histdata_bid(pair: str, *, fix_dst: bool) -> pd.Series:
+    """Bid closes for a HistData pair other than USDJPY (spec 019), UTC index.
+
+    `fix_dst` has no default on purpose. USDJPY's HistData file carries the EU-date DST
+    fault from 2019 (CLAUDE.md trap 8), but whether these files do is unverified until
+    spec 019's Step 0 has run on them: pass False for the first Step 0 run, and True only
+    if Step 0 shows the fault in the mismatch windows from 2019 (spec 019 *Step 0*). Record
+    the choice in docs/DATA.md."""
+    path = histdata_pair_path(pair)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. Build it with scripts/fetch_official.py --histdata-pairs, "
+            "which waits until the Dukascopy gap-fill fetch is complete (user's instruction, "
+            "2026-11-27).")
+    s = pd.read_parquet(path, columns=["close"])["close"].astype("float64")
+    return fix_histdata_dst(s) if fix_dst else s
+
+
 def load_ticks(month: str) -> pd.DataFrame:
     """Eightcap ticks for 'YYYYMM' (2024-06 .. 2026-06), prices in JPY."""
     t = pd.read_parquet(DATA_DIR / "ticks" / "eightcap" / f"USDJPY_{month}.parquet")

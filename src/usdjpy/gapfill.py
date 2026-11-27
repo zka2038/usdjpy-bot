@@ -74,20 +74,22 @@ def synthetic_bars(tree: pd.DataFrame, profile: pd.Series | None = None) -> pd.D
     return _with_synthetic_ask(tree["bid"], TREE_SOURCE, profile=profile)
 
 
-def quotes_at(bars: pd.DataFrame, ts, tolerance: str = "5min") -> pd.DataFrame:
+def quotes_at(bars: pd.DataFrame, ts, tolerance: str = "5min", cols=("bid", "ask")) -> pd.DataFrame:
     """Vectorised events.quote_at: for each ts, the last bar at or before ts - 1min,
-    NaN where none is within `tolerance` + 1min."""
+    NaN where none is within `tolerance` + 1min. `cols` selects the columns returned
+    (bid-only bars pass ("bid",); added 2026-11-27 for spec 019, default unchanged)."""
     ts = pd.DatetimeIndex(ts)
+    cols = list(cols)
     idx = bars.index
     pos = idx.searchsorted(ts - pd.Timedelta("1min"), side="right") - 1
     ok = pos >= 0
-    vals = np.full((len(ts), 2), np.nan)
+    vals = np.full((len(ts), len(cols)), np.nan)
     if ok.any():
         found = idx[pos[ok]]
         fresh = np.asarray((ts[ok] - found) <= pd.Timedelta(tolerance) + pd.Timedelta("1min"))
-        rows = bars.iloc[pos[ok]][["bid", "ask"]].to_numpy(dtype=float)
+        rows = bars.iloc[pos[ok]][cols].to_numpy(dtype=float)
         vals[ok] = np.where(fresh[:, None], rows, np.nan)
-    return pd.DataFrame(vals, index=ts, columns=["bid", "ask"])
+    return pd.DataFrame(vals, index=ts, columns=cols)
 
 
 def jst_to_utc(days, hhmm: str) -> pd.DatetimeIndex:

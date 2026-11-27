@@ -3,6 +3,9 @@ repo was seeded). Each source is independent: a failure is reported and the rest
 
     python scripts/fetch_official.py              # FRED, MOF, CFTC
     python scripts/fetch_official.py --histdata   # + HistData 1-min 2000-2014 and 2025-05 onward (pip install histdata)
+    python scripts/fetch_official.py --no-official --histdata-pairs eurjpy,gbpjpy,audjpy,eurusd,gbpusd,audusd
+        # spec 019: HistData 1-min for other pairs, 2007-2024 only, built to data/bars_1min/.
+        # Refuses to run until the Dukascopy gap-fill fetch has logged "stage 3 complete".
 
 Dukascopy tick data (bid/ask, 2003-now) is separate and large:
     python scripts/download.py 2010-01-01 2026-11-20
@@ -123,12 +126,94 @@ def histdata() -> None:
                 print(f"  FAIL {y}-{m:02d}: {e}")
 
 
+PAIR_YEARS = range(2007, 2025)   # spec 019: pre-holdout only; holdout years are not downloaded
+
+
+def dukascopy_fetch_done() -> tuple[bool, str]:
+    """True unless a Dukascopy gap-fill fetch exists whose log does not yet end in
+    `stage 3 complete`. Looks for data/tokyo_hours here and in parent directories, as
+    scripts/fetch_status.py does, so it finds the main checkout's tree from a worktree."""
+    for base in (ROOT, *ROOT.parents):
+        log = base / "data" / "tokyo_hours" / "fetch.log"
+        if log.exists():
+            lines = log.read_text(errors="replace").splitlines()[-20:]
+            done = any("stage 3 complete" in x for x in lines)
+            return done, str(log)
+    return True, "no data/tokyo_hours/fetch.log found"
+
+
+def histdata_pairs(pairs: list[str]) -> None:
+    """Spec 019's pairs: yearly HistData MetaTrader M1 zips for 2007-2024, built into
+    data/bars_1min/histdata_<pair>_bid_2007_2024.parquet (bid OHLC, UTC; NY local with DST,
+    no EU-date correction: spec 019's Step 0 decides that). Raw zips stay in
+    data/official/histdata/<pair>/."""
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from usdjpy.config import HOLDOUT_START
+    from usdjpy.datasets import histdata_pair_path, read_histdata_mt_csv
+
+    done, where = dukascopy_fetch_done()
+    if not done:
+        raise SystemExit(
+            f"Refusing: the Dukascopy gap-fill fetch is not complete ({where}). No other fetch "
+            "runs until it logs 'stage 3 complete' (user's instruction, 2026-11-27).")
+    if max(PAIR_YEARS) >= pd.Timestamp(HOLDOUT_START).year:
+        raise SystemExit("PAIR_YEARS reaches the holdout; spec 019 downloads pre-holdout years only")
+    try:
+        from histdata import download_hist_data as dl
+        from histdata.api import Platform as P, TimeFrame as TF
+    except ImportError:
+        raise SystemExit("pip install histdata")
+    for pair in pairs:
+        pair = pair.lower()
+        print(f"HistData {pair}")
+        dest = OUT / "histdata" / pair
+        dest.mkdir(parents=True, exist_ok=True)
+        parts = []
+        for y in PAIR_YEARS:
+            zips = sorted(dest.glob(f"*{pair.upper()}*{y}*.zip"))
+            if not zips:
+                try:
+                    dl(year=str(y), pair=pair, platform=P.META_TRADER, time_frame=TF.ONE_MINUTE,
+                       output_directory=str(dest))
+                except Exception as e:  # noqa: BLE001
+                    print(f"  FAIL {y}: {e}")
+                    continue
+                zips = sorted(dest.glob(f"*{pair.upper()}*{y}*.zip"))
+            for z in zips:
+                with zipfile.ZipFile(z) as zf:
+                    for name in zf.namelist():
+                        if name.lower().endswith(".csv"):
+                            parts.append(read_histdata_mt_csv(zf.open(name)))
+            print(f"  ok  {y}")
+        if not parts:
+            print(f"  no data for {pair}")
+            continue
+        bars = pd.concat(parts).sort_index()
+        bars = bars[~bars.index.duplicated(keep="last")]
+        bars = bars[bars.index < pd.Timestamp(HOLDOUT_START, tz="UTC")]
+        out = histdata_pair_path(pair)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        bars.to_parquet(out, compression="zstd")
+        print(f"  built {out.name}: {len(bars):,} bars {bars.index[0]} .. {bars.index[-1]}")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--histdata", action="store_true")
+    ap.add_argument("--histdata-pairs", default=None,
+                    help="comma-separated pairs other than usdjpy, 2007-2024 only (spec 019)")
+    ap.add_argument("--no-official", action="store_true", help="skip FRED, MOF and CFTC")
     a = ap.parse_args()
-    fred()
-    mof()
-    cftc()
+    if a.histdata_pairs:   # checked first, so a refusal happens before any other request
+        done, where = dukascopy_fetch_done()
+        if not done:
+            raise SystemExit(f"Refusing: the Dukascopy gap-fill fetch is not complete ({where}).")
+    if not a.no_official:
+        fred()
+        mof()
+        cftc()
     if a.histdata:
         histdata()
+    if a.histdata_pairs:
+        histdata_pairs([x.strip() for x in a.histdata_pairs.split(",") if x.strip()])
