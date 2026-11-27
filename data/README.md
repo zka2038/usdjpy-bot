@@ -1,6 +1,7 @@
 # Data
 
-`data/` is git-ignored except `data/calendars/` and this file. Rebuild the rest with:
+`data/` is git-ignored except `data/calendars/`, `data/disk-utility/` (tools that keep
+long-running jobs alive on the external drive; not data) and this file. Rebuild the rest with:
 
 ```
 python scripts/build_github_data.py    # GitHub mirrors

@@ -35,11 +35,23 @@ only, repeatedly.
 
 ## 2. The fetch
 
-`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 19:20
-UTC: stages 1 and 2 complete; stage 3 has 2,425 days (8,084 requests) left, about 67
-hours at full pace, so 29 Nov at the earliest; at the pace of the previous 6 hours
-(63 requests/h, with rate limiting) about 5 days.** What is fetched and why:
-`specs/README.md`, *Dukascopy fetch*.
+`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-27 11:00
+UTC: stages 1 and 2 complete; stage 3 at ~555 of 2,506 days (~6,500 requests left),
+about 2.3 days at full pace.** What is fetched and why: `specs/README.md`, *Dukascopy fetch*.
+
+**Restarts are automatic since 2026-11-27 11:08 UTC** (user's decision):
+`data/disk-utility/fetch_supervisor.sh` runs from `~/usdjpy-fetch-supervisor/` on the internal
+disk and relaunches the fetch within about a minute of any early exit, waits out drive
+dropouts, caps itself at 6 restarts an hour, and exits when `fetch.log` reports `stage 3
+complete`. Each restart it makes adds a dated `--- restarted ... by fetch_supervisor ---` line
+to `fetch.log` and writes the Python PID to `fetch.pid`. Check it with
+`bash ~/usdjpy-fetch-supervisor/fetch_supervisor.sh status`; details in
+`data/disk-utility/README.md`. The manual procedure below is the fallback if it is stopped.
+It cannot stop the Mac sleeping on battery: **keep the Mac on mains power.**
+
+**Deaths so far:** 2026-11-25 ~22:43; 2026-11-26 ~13:44, ~19:19, 20:16, 20:18, 23:39
+(the user unplugged the drive by accident); 2026-11-27 10:17 (on AC, at a write) and
+10:59 (the Mac slept on battery). Each was restarted, with a dated line in `fetch.log`.
 
 **Why it dies (found 2026-11-26 ~20:18 UTC): the external drive drops out.** At 20:18 the
 working directory on `/Volumes/bzk Drive` vanished and the volume remounted seconds later;
