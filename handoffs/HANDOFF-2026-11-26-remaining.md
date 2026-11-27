@@ -18,12 +18,14 @@ only, repeatedly.
 
 ## 1. Where things stand
 
-- **`main` is at PR #5** (merge `cb04c11`, by the user, 2026-11-26 01:01 UTC), which took
-  `research/remaining-work` up to `8cad770`. On 2026-11-26 ~18:00 UTC, at the user's
-  request, a pull request was opened from `research/remaining-work` to `main` carrying
-  everything since, for the user to merge (agents do not merge or push to `main`). Check
-  `gh pr list` for its state. Work continues on `research/remaining-work` or a new branch.
-- **Next session: start at §6 below** (scope for continuing), after the fetch check in §2.
+- **`main` is at PR #6** (merge `3588db6`, by the user, 2026-11-26 18:17 UTC), which carries
+  this session's work up to `deb7291`. After it, `research/remaining-work` added the specs
+  006-018 triage (`2cb2c67`) and its handoff notes; check `git log origin/main..` for
+  what is not yet on `main`. Agents do not merge or push to `main`; `gh` is not installed
+  on this machine, so the user opens and merges pull requests on GitHub.
+- **Next session: start at `handoffs/README.md`** (the priority list, verified on a cold
+  clone 2026-11-26), after the fetch check in §2. §6 below holds the detail behind each
+  priority. All handoffs are in `handoffs/` since 2026-11-26.
 - **Tasks 1–4 of the during-fetch handoff are done.** Task 3's analysis is written
   and tested but cannot run until the fetch completes.
 - **Spec 004, in one line:** B beats zero and unmatched control, but not
@@ -33,15 +35,69 @@ only, repeatedly.
 
 ## 2. The fetch
 
-`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-26 17:48
-UTC: stages 1 and 2 complete; stage 3 has 2,446 days (~8,150 requests) left, about 68
-hours at full pace, so 29 Nov at the earliest and probably later.** It had been at full
-pace from the 14:48 restart (48 days in 2.5 h), then from ~17:30 Dukascopy answered
-HTTP 429 and timeouts; the script backs off and restarts itself (1 of 200 restarts used
-at 17:48). It has died twice, the second time (~13:44 UTC 26 Nov) on battery sleep,
-which `caffeinate -i` does not prevent: **keep the machine on mains power** (at 17:48 it
-was on battery, 34%). PID 51021 since the 14:48 restart. What is fetched and why:
+`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. What is fetched and why:
 `specs/README.md`, *Dukascopy fetch*.
+
+**Status snapshot, 2026-11-27 12:17 UTC** (`scripts/fetch_status.py`; re-run it, do not
+trust this):
+
+| | |
+|---|---|
+| Fetch process | alive, PID 89264 (+ caffeinate 89265), up 1 h 17 min since the 10:59 restart |
+| Supervisor | running, PID 90253, since 11:08 UTC; no restarts needed yet |
+| Stage 1 / 2 | complete (156 / 466 days) |
+| Stage 3 | 592 of 2,506 days; 1,914 days, 6,380 requests left; reached 2008-11-19 |
+| Overall | 39.1% of 10,478 requests |
+| Pace | 112 requests in the last hour; 77/h over 6 h (ceiling 120/h) |
+| ETA | 2.2 days at full pace (~29 Nov 17:00 UTC); 3.4 days at the 6 h pace (~30 Nov 22:00 UTC) |
+| Errors, last 200 log lines | 13 HTTP 429, 11 connection errors, 1 stage restart |
+| Process restarts in the log | 8 |
+| Power | **on battery, 83%**: sleep on battery kills it and the supervisor cannot prevent that |
+
+**Restarts are automatic since 2026-11-27 11:08 UTC** (user's decision):
+`data/disk-utility/fetch_supervisor.sh` runs from `~/usdjpy-fetch-supervisor/` on the internal
+disk and relaunches the fetch within about a minute of any early exit, waits out drive
+dropouts, caps itself at 6 restarts an hour, and exits when `fetch.log` reports `stage 3
+complete`. Each restart it makes adds a dated `--- restarted ... by fetch_supervisor ---` line
+to `fetch.log` and writes the Python PID to `fetch.pid`. Check it with
+`bash ~/usdjpy-fetch-supervisor/fetch_supervisor.sh status`; details in
+`data/disk-utility/README.md`. The manual procedure below is the fallback if it is stopped.
+It cannot stop the Mac sleeping on battery: **keep the Mac on mains power.**
+
+**Deaths so far:** 2026-11-25 ~22:43; 2026-11-26 ~13:44, ~19:19, 20:16, 20:18, 23:39
+(the user unplugged the drive by accident); 2026-11-27 10:17 (on AC, at a write) and
+10:59 (the Mac slept on battery). Each was restarted, with a dated line in `fetch.log`.
+
+**Why it dies (found 2026-11-26 ~20:18 UTC): the external drive drops out.** At 20:18 the
+working directory on `/Volumes/bzk Drive` vanished and the volume remounted seconds later;
+the fetch restarted at 20:17 died with it. The drive is a USB "Portable" 2 TB disk, exFAT,
+`disksleep` 0. Every death fits: no traceback, no crash report, no logged kill, no sleep;
+each at a write to the drive (a day file, then its `fetch.log` line). A process whose
+stdout and stderr are files on a vanished volume cannot report its own failure. Battery
+was a coincidence or a contributor (bus power), not the cause: the 4th death (20:16) was on
+AC. Restarted at ~20:19 UTC as **PID 65043**. **The fix is physical or a relocation, and
+the user's call:** reseat or replace the USB cable, use a port without a hub or a powered
+hub, or move `data/tokyo_hours/` (or the repo) to the internal disk. Until then every
+dropout kills the fetch and needs a restart.
+
+**Day files written at a death may be truncated** (13:44 → `2024-08-05`, 19:19 →
+`2007-04-03`, 20:16 → `2007-05-11`, 20:18 → whichever day was in flight). They count as
+fetched by name, so the fetch never revisits them. They must not be opened while the fetch
+runs (blinding); a truncated parquet fails loudly when the analysis loads it. Before the
+analysis runs, decide with the user how to check them (re-fetch those days, or an
+integrity pass that reads parquet metadata only).
+
+**Status, in one command** (file names, mtimes and the log only; never opens a day file):
+
+```bash
+~/.venvs/usdjpy-bot/bin/python scripts/fetch_status.py              # snapshot: alive?, bars, pace, ETA, log tail
+~/.venvs/usdjpy-bot/bin/python scripts/fetch_status.py --watch 60   # refresh every minute
+```
+
+It finds the main checkout's `data/tokyo_hours` from a worktree by itself. It is on
+`research/remaining-work` (and `main` once merged), not in the main checkout, which stays
+on `research/002-intervention-disclosure` until the fetch ends: run it from the worktree
+or a clone. The older checks still work:
 
 ```bash
 cd "/Volumes/bzk Drive/usdjpy-bot"
@@ -50,13 +106,18 @@ ps -p "$(cat data/tokyo_hours/fetch.pid)"            # alive?
 ~/.venvs/usdjpy-bot/bin/python scripts/004_gap_fill_analysis.py --check   # days left per stage (filenames only)
 ```
 
+**PID file gotcha (bit twice):** started as `caffeinate -i python ...`, the Python fetch
+and `caffeinate` get adjacent PIDs and the one `Popen` reports is not reliably the
+Python one. After a restart, write the PID whose `ps -o command=` starts with the venv's
+`python`, and check it with `ps -p`.
+
 From a worktree, add `--tree-root "/Volumes/bzk Drive/usdjpy-bot/data/tokyo_hours"`:
 the default reads the worktree's own `data/tokyo_hours`, which is deliberately not
 linked, and reports every stage as untouched. Request counts (not just days):
 `download_gap_fill.planned(*STAGES[s][:3], out_dir=...)`, also filenames only.
 
-- **It has died twice** (2026-11-25 ~22:43, and 2026-11-26 ~13:44 UTC; no traceback
-  either time) and was restarted each time. Restart it the way `HANDOFF-2026-11-25-during-fetch.md` §2
+- **It has died three times** (2026-11-25 ~22:43; 2026-11-26 ~13:44 and ~19:19 UTC; no
+  traceback any time) and was restarted each time, with a dated line in `fetch.log`. Restart it the way `HANDOFF-2026-11-25-during-fetch.md` §2
   describes, from the **main checkout** (`/Volumes/bzk Drive/usdjpy-bot`), never from
   a worktree: a worktree's script writes into the worktree's own `data/`. Start it
   with `start_new_session=True`, write its PID to `data/tokyo_hours/fetch.pid`, and
@@ -134,15 +195,18 @@ linked, and reports every stage as untouched. Request counts (not just days):
   `fetch_official.py` hardcodes `usdjpy`.
 - **New fetches of any kind**, anything after `HOLDOUT_START`, any edit to kill
   criteria, renaming branches, and merging.
-- **Merging either collaborator branch** (both unmerged on `origin`):
-  - **`research/trial-budget` is deliberately not adopted.** Its ledger counts
-    configurations with near-duplicates collapsed (effective N=11) and concludes spec
-    004 fails the Deflated Sharpe hurdle. **The user chose to count specs, N=5
-    (2026-11-25; `CLAUDE.md`, trial budget), after seeing it.** Do not reopen the
-    count on that branch's authority. Its figures also predate the HistData DST fix:
-    on the corrected trades, spec 004 passes at N=11 (0.969 prefix, 0.951 postfix),
-    though prefix fails there without its single 2011-03-18 trade. If merged, it
-    conflicts with `main` in `CLAUDE.md`, `HANDOFF.md`, spec 004 and `specs/README.md`.
+- **Merging the remaining collaborator branch** (unmerged on `origin`):
+  - ~~`research/trial-budget`~~ **Deleted from `origin` 2026-11-26 on the user's
+    instruction**, after its one piece still of use, `specs/TRIAGE-006-018.md`, was brought
+    to `research/remaining-work` and rewritten for N = 5 (`2cb2c67`). It had been
+    deliberately not adopted: its ledger counted configurations (effective N=11) and
+    concluded spec 004 fails the Deflated Sharpe hurdle; **the user chose to count specs,
+    N=5 (2026-11-25; `CLAUDE.md`, trial budget), after seeing it.** Do not reopen the count
+    on its authority. Its tip was `8f7f216` (parent `fe8da8c`, both 2026-11-25); the objects
+    stay in the local repository until `git gc` prunes them, so while they last it can be
+    recovered with `git branch research/trial-budget 8f7f216`. Its DSR sensitivities
+    (variance-adjusted SR_0; intervention days excluded), run on DST-corrected trades on
+    2026-11-26, change nothing at N=5 (all 0.979-0.994) and were not brought.
   - **`feature/dukascopy-fetch`** (a collaborator): a separate resumable Dukascopy
     downloader with its own 429 handling. It edits `src/usdjpy/datasets.py`, which
     `main` changed for the HistData fix, so a merge needs care there. It sends
@@ -171,7 +235,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
 
 The user asked for this so the next session can continue after the fetch and, until then,
 work on what the Dukascopy data does not block. It lists options; what is chosen is the
-user's call. Everything below "Not blocked" may run while the fetch does, under §2's
+user's call. **Their order is the priority list in `handoffs/README.md`** (since
+2026-11-27: group A, not blocked by the fetch, before group B, which needs it), which cites
+the items below by number. Everything below "Not blocked" may run while the fetch does, under §2's
 rules (never read `data/tokyo_hours/`; send nothing to datafeed.dukascopy.com).
 
 **What this session (2026-11-26) delivered**, in order, each recorded where it says:
@@ -196,7 +262,9 @@ and 6, §3 items 3-6 above, `HANDOFF.md` §4 (superseded values).
 5. **Spec 017 O2's HAR form:** levels (as built; QLIKE slightly worse than naive at h=5)
    or log-HAR. Declare before spec 017 is run.
 6. **Trial budget for specs 006-018** (§4): about five hypotheses of headroom on USDJPY
-   2007-2024, or route them to JPY crosses.
+   2007-2024, or route them to other pairs. **A per-spec proposal now exists:**
+   `specs/TRIAGE-006-018.md` (brought from `research/trial-budget` 2026-11-26 and rewritten
+   against N = 5). It awaits the user's sign-off; nothing in it has taken effect.
 
 ### Not blocked by the Dukascopy data
 7. **JPY-cross breadth study** (`HANDOFF.md` §2: the highest-value next study). Needs a

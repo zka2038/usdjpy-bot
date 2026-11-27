@@ -6,6 +6,9 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 
 ## Index
 
+How to route 006–018 given the trial budget is proposed, not decided, in
+[`TRIAGE-006-018.md`](TRIAGE-006-018.md).
+
 | # | Spec | Priority tier / author | Horizon | Data ready? | Status |
 |---|---|---|---|---|---|
 | 001 | [Gotobi / Tokyo 9:55 fix](001-gotobi-tokyo-fix.md) | Earlier report #1 | Intraday (hours) | Y | upheld, both rules; mechanism unconfirmed (004's A-vs-B was uninformative, and its weekday-matched B vs C is below 2.5). Results recorded 2026-11-26 |

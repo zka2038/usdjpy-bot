@@ -1,6 +1,7 @@
 data/*
 !data/calendars/
 !data/README.md
+!data/disk-utility/
 results/
 .venv/
 __pycache__/
