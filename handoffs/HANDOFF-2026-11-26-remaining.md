@@ -35,9 +35,24 @@ only, repeatedly.
 
 ## 2. The fetch
 
-`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. **At 2026-11-27 11:00
-UTC: stages 1 and 2 complete; stage 3 at ~555 of 2,506 days (~6,500 requests left),
-about 2.3 days at full pace.** What is fetched and why: `specs/README.md`, *Dukascopy fetch*.
+`scripts/download_gap_fill.py all`, writing `data/tokyo_hours/`. What is fetched and why:
+`specs/README.md`, *Dukascopy fetch*.
+
+**Status snapshot, 2026-11-27 12:17 UTC** (`scripts/fetch_status.py`; re-run it, do not
+trust this):
+
+| | |
+|---|---|
+| Fetch process | alive, PID 89264 (+ caffeinate 89265), up 1 h 17 min since the 10:59 restart |
+| Supervisor | running, PID 90253, since 11:08 UTC; no restarts needed yet |
+| Stage 1 / 2 | complete (156 / 466 days) |
+| Stage 3 | 592 of 2,506 days; 1,914 days, 6,380 requests left; reached 2008-11-19 |
+| Overall | 39.1% of 10,478 requests |
+| Pace | 112 requests in the last hour; 77/h over 6 h (ceiling 120/h) |
+| ETA | 2.2 days at full pace (~29 Nov 17:00 UTC); 3.4 days at the 6 h pace (~30 Nov 22:00 UTC) |
+| Errors, last 200 log lines | 13 HTTP 429, 11 connection errors, 1 stage restart |
+| Process restarts in the log | 8 |
+| Power | **on battery, 83%**: sleep on battery kills it and the supervisor cannot prevent that |
 
 **Restarts are automatic since 2026-11-27 11:08 UTC** (user's decision):
 `data/disk-utility/fetch_supervisor.sh` runs from `~/usdjpy-fetch-supervisor/` on the internal
@@ -220,8 +235,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
 
 The user asked for this so the next session can continue after the fetch and, until then,
 work on what the Dukascopy data does not block. It lists options; what is chosen is the
-user's call. **Their order is the priority list in `handoffs/README.md`**, which cites the
-items below by number. Everything below "Not blocked" may run while the fetch does, under §2's
+user's call. **Their order is the priority list in `handoffs/README.md`** (since
+2026-11-27: group A, not blocked by the fetch, before group B, which needs it), which cites
+the items below by number. Everything below "Not blocked" may run while the fetch does, under §2's
 rules (never read `data/tokyo_hours/`; send nothing to datafeed.dukascopy.com).
 
 **What this session (2026-11-26) delivered**, in order, each recorded where it says:
