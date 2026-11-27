@@ -79,5 +79,13 @@ O1–O4 are weight multipliers in the spec 014 weekly/daily simulator, so they n
 weekly) adjustment for O1 and O3. O5 is an entry mask passed to the bar-loop simulators of specs
 007/006. Build the HAR model once (Tier 0b) and reuse it for sizing everywhere.
 
+## Note 2026-11-27 (user's decision; spec not run)
+
+**O2's HAR form, levels or log-HAR, is deferred.** Spec 017 is parked
+(`TRIAGE-006-018.md`), so nothing waits on it. The form **must be declared here before
+spec 017 is run**. The built model is levels HAR (`src/usdjpy/vol.py`). Its out-of-sample
+checks, including a QLIKE marginally worse than naive at h = 5, are in
+`HANDOFF-2026-11-25-during-fetch.md` Task 6.
+
 ## Results
 _Pending._

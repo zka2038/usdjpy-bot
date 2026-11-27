@@ -55,24 +55,26 @@ the measured spread decides it. Field standards for every cost choice:
 specs converge. Spec 004 passes the Deflated Sharpe hurdle up to N=17 on prefix (N=10
 without its single +209-pip trade on 2011-03-18) and N=11 on postfix: **about five
 hypotheses of headroom** on USDJPY 2007-2024, not three. At N=18 (all of 006-018)
-neither leg clears. The DSR is against zero, not matched control. Route specs
-006-018 onto other JPY crosses, or accept what they cost.
+neither leg clears. The DSR is against zero, not matched control. Route the
+pair-generic specs among 006-018 onto other pairs, or accept what they cost
+(`specs/TRIAGE-006-018.md`, accepted 2026-11-27: a JPY cross is not a fresh sample
+for a yen-side hypothesis).
 
 **Spending the holdout is still wrong.** ~70 prefix trades give SE 2.355 pips against
 +2.301, expected t 0.98, power 16% at alpha 0.05; against matched control it is
 lower again.
 
-**The way out is breadth, which this repo's own limit section already names.**
-Detectable Sharpe is `2/sqrt(years)` whatever the horizon, and only
-cross-sectional breadth moves it. Spec 004 is one pair, one window, one flow. The
-gotobi mechanism is JPY-side importer settlement demand, so it should appear in
-EURJPY, AUDJPY and GBPJPY on the same dates and in the same Tokyo window. Testing
-the same pre-declared rule across four pairs multiplies effective n without
-waiting two years, and a mechanism that shows up in one pair and not the others
-is evidence against the mechanism rather than for the pair. That is the highest-
-value next study after the gap fill, and the weekday result makes it more so: a
-Gotobi flow should appear on Gotobi days in every JPY pair, while a Friday effect
-need not.
+**The JPY crosses attribute the move; they do not replicate it** (corrected
+2026-11-27; the earlier text is in git history and in §4). Detectable Sharpe is
+`2/sqrt(years)` whatever the horizon, and only cross-sectional breadth moves it, but
+the crosses are not breadth for this effect. EURJPY = EURUSD × USDJPY, so on a Tokyo
+morning a cross largely repeats USDJPY's move and inherits its Friday effect too. What
+they can do is split the B-day move into a yen leg (the crosses) and a dollar leg
+(EURUSD, GBPUSD, AUDUSD). Yen-funded settlement predicts a yen-leg move. A broad
+dollar or weekday effect predicts a dollar-leg move. That is **spec 019**
+(`specs/019-yen-dollar-split.md`), the highest-value next study after the gap fill,
+because it speaks directly to the weekday confound. Its data are fetched only after
+the Dukascopy fetch completes, and it spends one spec on this sample.
 
 **Financing changes what is worth testing at all.** Spec 005's most useful output
 is not its verdict but its cost line. IBKR's skim is 2.0% a year of notional in
@@ -167,6 +169,7 @@ in each line is right.
 | spec 004 day counts | A 234, B 1159, month-end 17% | **216 / 1075, 16.7%** pre-holdout (the old counts ran into 2026) |
 | spec 001 verdict | "upheld", never recorded in the spec; the report read 2022+ as t ≥ 2 | **upheld for both rules on current code**, 2022+ read as mean > 0 (t ≥ 2 there has 17-23% power at the full-sample effect). On first-run code 1a failed `PESSIMISTIC` (t 1.62), so the first "upheld" was unsupported for 1a. Decided 2026-11-26, after the results were seen |
 | spec 003 table (first run, 2026-11-25) | std t_hc +1.80 / +1.17 / +0.81 / +0.95; raw rho 0.0253 / 0.0437 / 0.0318 / 0.0431; rho 0.0303 at h=1; MDE rho 0.0613 | **+1.78 / +1.15 / +0.75 / +0.88; 0.0259 / 0.0441 / 0.0314 / 0.0413; 0.0302; 0.0620.** First table ran before the exec-hour and HistData DST fixes and with `ewma_vol` seeded on the whole series; verdict unchanged. Restated 2026-11-26, confirmed from a fresh clone |
+| JPY-cross breadth study | "multiplies effective n" across four JPY pairs; "a Friday effect need not" appear in the crosses (§2) | **The crosses share USDJPY's move by the identity EURJPY = EURUSD × USDJPY**: well under 4× the effective sample, and they inherit the Friday effect. Replaced by spec 019's yen/dollar split, 2026-11-27, before any cross data existed |
 | spec 005 headline (first run, 2026-11-24) | 3,976 days; −0.73 / +7.16 / −0.54 pips, NW t −0.19 / +0.47 / −0.04; slope +0.96 t +2.19; V2 long t 1.91 | **3,971 days; −0.95 / +3.66 / −0.83, t −0.24 / +0.23 / −0.06; slope +0.86 t +1.89; V2 long t 1.70.** Ran before the exec-hour, HistData DST and BoJ-stamp fixes; verdict unchanged. Restated 2026-11-26, confirmed from a fresh clone |
 
 Seven of these were caught by computing something rather than reasoning about it.

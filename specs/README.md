@@ -6,8 +6,9 @@ Sources for specs 006–018: `docs/research/USDJPY additional strategies to test
 
 ## Index
 
-How to route 006–018 given the trial budget is proposed, not decided, in
-[`TRIAGE-006-018.md`](TRIAGE-006-018.md).
+How 006–018 are routed given the trial budget is in [`TRIAGE-006-018.md`](TRIAGE-006-018.md):
+**accepted by the user 2026-11-27**, with the amendment that JPY crosses used for a yen-side
+hypothesis do not start their own spec count.
 
 | # | Spec | Priority tier / author | Horizon | Data ready? | Status |
 |---|---|---|---|---|---|
@@ -28,7 +29,8 @@ How to route 006–018 given the trial budget is proposed, not decided, in
 | 015 | [Month-end equity-hedge rebalancing](015-month-end-equity-hedge-rebalance.md) | Earlier report #4 | 1 hour, monthly | partial (SP500 scriptable) | idea |
 | 016 | [Rate differential, correlation-gated](016-rate-differential-correlation-gated.md) | Earlier report #5 | Weekly | partial (DGS2 scriptable) | idea |
 | 017 | [Risk overlays (judged on drawdown)](017-risk-overlays.md) | Overlay | Daily / weekly | partial (HAR model, release calendar) | idea |
-| 018 | [Expected-null calendar battery](018-expected-null-battery.md) | Tier 0d | Mixed | Y | idea |
+| 018 | [Expected-null calendar battery](018-expected-null-battery.md) | Tier 0d | Mixed | Y | idea; not to be run on USDJPY 2007–2024 (triage) |
+| 019 | [Yen-leg / dollar-leg split of the Gotobi-morning move](019-yen-dollar-split.md) | bzk | — (no trade) | N (six HistData pairs; fetch after the Dukascopy fetch completes) | idea, declared 2026-11-27; replaces the JPY-cross replication study |
 
 "Partial/N" items and how to fill them are listed in each spec's *Data needed* section.
 
@@ -84,9 +86,11 @@ touched.
 | Daily or weekly | 017 | No |
 
 Two further limits on what Dukascopy can do for specs 006–018:
-- **The trial budget** (`HANDOFF.md` §2) routes specs 006–018 onto other JPY crosses. Their main
-  need is cross-pair minute bars, which HistData provides free. `fetch_official.py` hardcodes
-  `usdjpy`, and the cross-pair files are not yet checked.
+- **The trial budget** routes the pair-generic specs among 006–018 onto other pairs
+  (`TRIAGE-006-018.md`, accepted 2026-11-27: USD pairs such as EURUSD start their own count;
+  JPY crosses on a yen-side hypothesis do not). Their main need is minute bars for other
+  pairs, which HistData provides free. `fetch_official.py` hardcodes `usdjpy`, and no other
+  pair's files are checked. No such fetch before the Dukascopy fetch completes.
 - **Most of what blocks them is not prices.** It is the calendars in 0c, FRED series, and bar
   high/low in the loader.
 

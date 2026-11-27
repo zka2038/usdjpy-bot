@@ -190,9 +190,9 @@ linked, and reports every stage as untouched. Request counts (not just days):
 
 - **Running any of specs 006–018 on USDJPY 2007–2024.** About five hypotheses of
   trial headroom remain (`CLAUDE.md`, trial budget), and the user counts specs.
-- **The JPY-cross breadth study** (`HANDOFF.md` §2 calls it the highest-value next
-  study after the gap fill). It needs a new HistData cross-pair fetch, and
-  `fetch_official.py` hardcodes `usdjpy`.
+- **Spec 019**, which replaced the JPY-cross breadth study on 2026-11-27. It needs a new
+  HistData fetch of six pairs, made only after the Dukascopy fetch completes, and its
+  Stage 2 needs the user's confirmation. `fetch_official.py` hardcodes `usdjpy`.
 - **New fetches of any kind**, anything after `HOLDOUT_START`, any edit to kill
   criteria, renaming branches, and merging.
 - **Merging the remaining collaborator branch** (unmerged on `origin`):
@@ -256,18 +256,24 @@ and 6, §3 items 3-6 above, `HANDOFF.md` §4 (superseded values).
 
 ### Decisions only the user can make (no data needed)
 3. ~~**Spec 001's kill-criterion reading**~~ Decided 2026-11-26 (§3 item 6): both rules pass.
-4. **Spec 007's return series:** its rule says "1-min mid"; the measurement says use the
+4. ~~**Spec 007's return series**~~ **Decided 2026-11-27: bid** (spec 007 *Amendment
+   2026-11-27*). Its rule said "1-min mid"; the measurement said use the
    bid (Task 6 record). Its clock is decided (`hybrid`). Changing "mid" is a rule change
    to an unrun spec, so the user's.
-5. **Spec 017 O2's HAR form:** levels (as built; QLIKE slightly worse than naive at h=5)
+5. ~~**Spec 017 O2's HAR form**~~ **Deferred 2026-11-27** until spec 017 is unparked (spec 017
+   *Note 2026-11-27*). Levels (as built; QLIKE slightly worse than naive at h=5)
    or log-HAR. Declare before spec 017 is run.
-6. **Trial budget for specs 006-018** (§4): about five hypotheses of headroom on USDJPY
+6. ~~**Trial budget for specs 006-018**~~ **Decided 2026-11-27: triage accepted with the
+   JPY-cross amendment** (`specs/TRIAGE-006-018.md` *Sign-off*). Was (§4): about five hypotheses of headroom on USDJPY
    2007-2024, or route them to other pairs. **A per-spec proposal now exists:**
    `specs/TRIAGE-006-018.md` (brought from `research/trial-budget` 2026-11-26 and rewritten
-   against N = 5). It awaits the user's sign-off; nothing in it has taken effect.
+   against N = 5). Accepted 2026-11-27 (see above).
 
 ### Not blocked by the Dukascopy data
-7. **JPY-cross breadth study** (`HANDOFF.md` §2: the highest-value next study). Needs a
+7. **JPY-cross breadth study, replaced 2026-11-27 by spec 019** (yen-leg / dollar-leg split;
+   the crosses share USDJPY's move, so they are not replication). The fetch it needs
+   waits for the Dukascopy fetch to complete (user's instruction), though HistData is a
+   different host. Originally: needs a
    HistData cross-pair fetch (a different host from Dukascopy, so no shared rate limit);
    `fetch_official.py` hardcodes `usdjpy`. Needs the user's go-ahead (new fetch). The
    harness from Tasks 5-6 applies unchanged.

@@ -29,7 +29,7 @@ not repeat them.
   `EnterWorktree`, `path=`), branch `research/remaining-work`. Its `data/` holds symlinks
   into the main checkout's data and `results/` is linked too; `data/tokyo_hours` is
   deliberately **not** linked. `data/official` (DFF, DGS2) is linked.
-- **`main` is the user's.** At this writing `main` = PR #6 (`3588db6`) and
+- **`main` is the user's.** `main` = PR #7 (`1bc3669`, merged 2026-11-27) and
   `research/remaining-work` is ahead of it by the commits since (`git log origin/main..`).
   The user merges on GitHub; `gh` is not installed. Never push to, merge into, or open a
   pull request against `main` yourself. If the user has merged since, start from
@@ -61,7 +61,7 @@ not be read.
 
 - **Trial count: N = 5 specs** (`CLAUDE.md`, trial budget). `research/trial-budget`
   (effective N = 11) was not adopted and is deleted; its triage proposal survives as
-  `specs/TRIAGE-006-018.md`, **still PROPOSED** (sign-off is a priority-list item).
+  `specs/TRIAGE-006-018.md`, **accepted 2026-11-27** with an amendment (below).
 - **No fetch deadline.** A day leaves the requirement only by a dated note in spec 004
   recording the user's decision.
 - **Kill criteria and their thresholds are fixed.** Spec 004's gap-fill analysis is fully
@@ -80,6 +80,14 @@ not be read.
   - BoJ call-rate average stamped at publication; DFF and DGS2 fetched (only those two);
   - every handoff lives in `handoffs/`, with `handoffs/README.md` as index and roadmap;
   - the fetch is kept alive by the supervisor.
+- **Decided 2026-11-27 by the user** (records: `specs/TRIAGE-006-018.md` *Sign-off*,
+  spec 007 *Amendment*, spec 017 *Note*, `specs/019-yen-dollar-split.md`):
+  - specs 006-018 triage **accepted**, with the amendment that a JPY cross is not a fresh
+    sample for a yen-side hypothesis;
+  - spec 007 uses the **bid**; spec 017's HAR form is **deferred** until 017 is unparked;
+  - the JPY-cross study is **spec 019**, a yen-leg / dollar-leg split, not a replication.
+    It spends one USDJPY spec at its Stage 2, and Stage 2 waits for the user;
+  - **no network fetch of any kind until the Dukascopy fetch logs `stage 3 complete`.**
 
 ## 4. Order of work
 

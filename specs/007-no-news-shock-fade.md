@@ -25,7 +25,7 @@ rate checks and BoJ leaks, which *continue*. The exclusion list matters more tha
 
 ## Rules (exact, no discretion)
 - Days: all bars 2015-01-01 → 2024-12-31 outside the exclusions below.
-- Shock: r = 1-min mid log return. s_m = median |r| at the same minute-of-week over the previous 60
+- Shock: r = 1-min **bid** log return *(was "mid"; amended 2026-11-27, see below)*. s_m = median |r| at the same minute-of-week over the previous 60
   trading days. Shock if |r| > 5 × s_m.
 - Entry: against the shock at the **close of the next bar** (one-bar delay), at bid/ask. No new entry
   while a position is open.
@@ -75,6 +75,16 @@ Path-dependent (detection, stop), so `window_trades` does not fit. Write a vecto
 plus a per-trade bar loop over the next ≤60 bars with bid/ask high/low, then validate fills on Eightcap
 ticks (a limit or stop counts as filled only if price trades through by ≥ 1 tick). In Eightcap-period
 runs, record the spread z-score at entry for the spec 017 spread filter.
+
+## Amendment 2026-11-27 (user's decision; spec not run, no results seen)
+
+**The shock series is the 1-min bid log return, not the mid.** On the bid-only sources the
+synthetic ask makes the mid jump about 2.3 pips at 05:59 and 06:59 JST every day. With the
+minute-of-week baseline those jumps are absorbed into s_m, so they hide real shocks at
+those minutes: a 5× rule fires on 0.9% of days on the mid against 5.7% on the bid.
+Measurement: `HANDOFF-2026-11-25-during-fetch.md`, Task 6. Fills stay at bid/ask as
+written. The minute-of-week clock is `"hybrid"` (decided 2026-11-26). The routing of this
+spec (run on major pairs first) is in `TRIAGE-006-018.md`.
 
 ## Results
 _Pending._

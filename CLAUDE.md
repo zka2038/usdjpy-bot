@@ -56,7 +56,10 @@ on prefix and N=11 on postfix**. The prefix leg's positive skew is one trade
 (2011-03-18, +209 pips); without it skew is −0.50 and the limit is **N=10**. So the
 repo has **about five hypotheses of headroom** on this sample, and specs 006-018 are
 thirteen: at N=18 neither leg clears (0.949 / 0.924). Run them on other pairs or
-other periods, or accept that they cost spec 004 its clearance. Declare in each new
+other periods, or accept that they cost spec 004 its clearance. **A JPY cross is not
+another pair for a yen-side hypothesis**: EURJPY = EURUSD × USDJPY, so it repeats
+USDJPY's move and counts against this sample (`specs/TRIAGE-006-018.md`, accepted
+2026-11-27). Declare in each new
 spec which sample it spends. `stats.deflated_sharpe` is the arbiter, not the t=3 bar
 below, which was set without reference to any trial count. **The DSR tests the
 effect against zero, not against weekday-matched control**, where spec 004 is t
